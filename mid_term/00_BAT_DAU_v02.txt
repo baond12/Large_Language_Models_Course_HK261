@@ -1,0 +1,19 @@
+LLM MIDTERM - BỘ ÔN THI V02: ĐÃ ĐỐI CHIẾU 5 SOLUTION
+Ngày kiểm tra: 17/10/2026.
+
+BẮT ĐẦU TỪ ĐÂU
+1) Đọc 06_LLM_Bao_cao_doi_chieu_solutions_v02.pdf (báo cáo độ tin cậy / lỗi xác minh).
+2) Mở 05_LLM_Master_Plan_14_ngay_v02.xlsx, tab Review_5_Solutions.
+3) Ôn theo 02_LLM_Bai_tap_goc_huong_dan_v02.docx và 01_LLM_Ly_thuyet_on_thi_v02.docx.
+4) Dùng 03_LLM_Tai_lieu_mang_phong_thi_v02.pdf để in; in kèm các đề gốc theo thông báo thầy.
+5) Luyện độc lập với 04_LLM_De_luyen_120_phut_va_dap_an.docx (không thay đổi, đây là đề tự soạn).
+
+TỪNG SOLUTION
+- LM: E1_LM_solution_kiem_chung_v02.docx sửa tần suất xác suất có điều kiện, giữ ba chuỗi sinh.
+- RNN: RNN_solution_kiem_chung_v02.xlsx sửa O44 non-teacher, đúng nhãn l; teacher nguyên trạng.
+- Seq2Seq: Seq2Seq_solution_errata_v02.xlsx giữ các sheet gốc và THÊM ba sheet ERRATA_v02, ENCODER_TINH_LAI, NORMALIZATION_CHECK. Không xem sheet gốc là đáp án đã sửa hoàn toàn: sai ở encoder sẽ lan truyền.
+- Self-Attention: xác minh ba vector Z là đúng theo WE gán trong solution, không thay đổi file người học.
+- MLM: xác minh loss 4.776716 bits theo giả định [MASK]=[1,1,1,1], không thay đổi file người học.
+
+QUAN TRỌNG: Loss solution dùng log2 (bits), còn loss -ln (nats) thường dùng trong loss ML. Không so sánh hai con số nếu chưa thống nhất cơ số log.
+Phần nhận xét và bài luyện chỉ là đối chiếu độc lập, KHÔNG thay lời giải/chấm điểm chính thức của giảng viên.

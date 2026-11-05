@@ -1,0 +1,6 @@
+{
+  "name": "r3_legal", "index_dir": "indexes/legal", "retriever": "hybrid", "distance": "cosine", "k": 5,
+  "candidate_k": 30, "rrf_constant": 60,
+  "llm": "Qwen/Qwen1.5-1.8B", "prompt": "grounded", "packing": "balanced",
+  "max_input_tokens": 4096, "max_new_tokens": 256, "seed": 261
+}

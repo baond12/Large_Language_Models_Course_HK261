@@ -1,0 +1,5 @@
+{
+  "name": "b0_code", "index_dir": "indexes/baseline", "retriever": "dense", "distance": "l2", "k": 5,
+  "llm": "Qwen/Qwen1.5-1.8B", "prompt": "baseline", "packing": "prefix",
+  "max_input_tokens": 4096, "max_new_tokens": 256, "seed": 261
+}

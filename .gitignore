@@ -1,0 +1,52 @@
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Local credentials and settings
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# Archives and trained model weights
+*.zip
+*.7z
+*.rar
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.gguf
+*.bin
+*.pb
+**/model/
+**/models/
+**/ln_weight/
+
+# Downloaded lab datasets
+**/datasets/
+**/testdata/
+
+# Generated RAG data, indexes, runs and local evidence
+/RAG Assignment/work/data/
+/RAG Assignment/work/indexes/
+/RAG Assignment/work/runs/
+/RAG Assignment/work/artifacts/
+/RAG Assignment/work/dist/
+
+# Temporary files
+*.log
+~$*
+Thumbs.db
+.DS_Store

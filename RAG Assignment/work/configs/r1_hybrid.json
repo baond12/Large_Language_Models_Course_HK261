@@ -1,0 +1,6 @@
+{
+  "name": "r1_hybrid", "index_dir": "indexes/baseline", "retriever": "hybrid", "distance": "cosine", "k": 5,
+  "candidate_k": 30, "rrf_constant": 60,
+  "llm": "Qwen/Qwen1.5-1.8B", "prompt": "baseline", "packing": "prefix",
+  "max_input_tokens": 4096, "max_new_tokens": 256, "seed": 261
+}
