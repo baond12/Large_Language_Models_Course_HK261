@@ -18,7 +18,7 @@ IMPROVED_PREFIX = (
 
 
 def build_prompt(question: str, passages: list[dict], tokenizer, max_input_tokens: int = 4096,
-                 style: str = "baseline", packing: str = "prefix") -> tuple[str, dict]:
+                 style: str = "baseline", packing: str = "prefix", chat_template: bool = False) -> tuple[str, dict]:
     """Budget with the generator tokenizer, never truncate the question/instructions."""
     if style not in {"baseline", "grounded"} or packing not in {"prefix", "balanced"}:
         raise ValueError("Invalid prompt style or context packing")
@@ -28,12 +28,19 @@ def build_prompt(question: str, passages: list[dict], tokenizer, max_input_token
     def encode(text):
         return tokenizer.encode(text, add_special_tokens=False)
 
-    if len(encode(prefix + suffix)) + 8 > max_input_tokens:
+    def render(text):
+        if not chat_template:
+            return text
+        if not getattr(tokenizer, "chat_template", None):
+            raise ValueError("Chat format requested but tokenizer has no chat template")
+        return tokenizer.apply_chat_template([{"role": "user", "content": text}], tokenize=False, add_generation_prompt=True)
+
+    if len(encode(render(prefix + suffix))) + 8 > max_input_tokens:
         raise ValueError("Question/instructions exceed input token budget")
     headers = [f"[S{i}] {p['source']} — {p.get('section') or 'đoạn trích'}\n" if style == "grounded" else ""
                for i, p in enumerate(passages, 1)]
     bodies = [encode(p["text"]) for p in passages]
-    overhead = len(encode(prefix + "\n\n".join(headers) + suffix)) + 16
+    overhead = len(encode(render(prefix + "\n\n".join(headers) + suffix))) + 16
     budget = max(0, max_input_tokens - overhead)
     allocations = [0] * len(passages)
     if packing == "prefix":
@@ -55,7 +62,7 @@ def build_prompt(question: str, passages: list[dict], tokenizer, max_input_token
     def compose():
         blocks = [headers[i] + tokenizer.decode(bodies[i][:n], skip_special_tokens=True)
                   for i, n in enumerate(allocations) if n > 0]
-        return prefix + "\n\n".join(blocks) + suffix
+        return render(prefix + "\n\n".join(blocks) + suffix)
 
     prompt = compose()
     # Token boundaries can change after concatenation. Verify the complete prompt.
@@ -66,6 +73,7 @@ def build_prompt(question: str, passages: list[dict], tokenizer, max_input_token
         allocations[longest] = max(0, allocations[longest] - max(8, len(encode(prompt)) - max_input_tokens))
         prompt = compose()
     metadata = {"input_tokens": len(encode(prompt)), "budget": max_input_tokens, "style": style, "packing": packing,
+                "chat_template": chat_template,
                 "passages": [{"label": f"S{i + 1}", "chunk_id": p["chunk_id"], "source": p["source"],
                     "original_tokens": len(bodies[i]), "included_tokens": allocations[i],
                     "truncated": allocations[i] < len(bodies[i])} for i, p in enumerate(passages)]}
@@ -81,7 +89,7 @@ def check_citations(answer: str, context_metadata: dict) -> dict:
 
 class LocalGenerator:
     def __init__(self, model_name: str, revision: str | None = None, device: str = "auto", max_input_tokens: int = 4096,
-                 max_new_tokens: int = 256, seed: int = 261):
+                 max_new_tokens: int = 256, seed: int = 261, chat_template: bool = False):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         torch.manual_seed(seed)
@@ -90,7 +98,10 @@ class LocalGenerator:
         if device.startswith("cuda") and not torch.cuda.is_available():
             raise RuntimeError("CUDA requested but not available. Run doctor and verify Docker GPU access")
         self.device, self.max_input_tokens, self.max_new_tokens = device, max_input_tokens, max_new_tokens
+        self.chat_template = chat_template
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision, trust_remote_code=False)
+        if chat_template and not self.tokenizer.chat_template:
+            raise ValueError("Chat format requested but tokenizer has no chat template")
         self.model = AutoModelForCausalLM.from_pretrained(model_name, revision=revision, trust_remote_code=False,
             torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
             attn_implementation="eager", low_cpu_mem_usage=True).to(device).eval()
@@ -99,7 +110,13 @@ class LocalGenerator:
         context_limit = int(getattr(self.model.config, "max_position_embeddings", max_input_tokens + max_new_tokens))
         if max_input_tokens + max_new_tokens > context_limit:
             raise ValueError("Configured input + generated tokens exceed model context limit")
-        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        # Preserve legacy baseline padding/stopping; chat models retain their own
+        # pad token and generation-config EOS list, including end-of-turn tokens.
+        if not chat_template or self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        self.stop_token_ids = self.model.generation_config.eos_token_id if chat_template else self.tokenizer.eos_token_id
+        if self.stop_token_ids is None:
+            self.stop_token_ids = self.tokenizer.eos_token_id
         self.model.generation_config.do_sample = False
         self.model.generation_config.temperature = None
         self.model.generation_config.top_p = None
@@ -107,13 +124,15 @@ class LocalGenerator:
         self.info = {"model": model_name, "requested_revision": revision, "actual_revision": getattr(self.model.config, "_commit_hash", None),
                      "parameters": count, "device": device, "dtype": str(next(self.model.parameters()).dtype),
                      "attention": "eager", "max_input_tokens": max_input_tokens, "max_new_tokens": max_new_tokens,
-                     "decoding": "greedy", "seed": seed}
+                     "decoding": "greedy", "seed": seed,
+                     "input_format": "tokenizer_chat_template" if chat_template else "plain_completion",
+                     "stop_token_ids": self.stop_token_ids}
         if device.startswith("cuda"):
             self.info.update(gpu=torch.cuda.get_device_name(), capability=list(torch.cuda.get_device_capability()))
 
     def generate(self, question: str, passages: list[dict], style: str = "baseline", packing: str = "prefix") -> dict:
         import torch
-        prompt, metadata = build_prompt(question, passages, self.tokenizer, self.max_input_tokens, style, packing)
+        prompt, metadata = build_prompt(question, passages, self.tokenizer, self.max_input_tokens, style, packing, self.chat_template)
         inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to(self.device)
         input_length = inputs["input_ids"].shape[1]
         if input_length > self.max_input_tokens:
@@ -124,7 +143,7 @@ class LocalGenerator:
         start = time.perf_counter()
         with torch.inference_mode():
             outputs = self.model.generate(**inputs, do_sample=False, max_new_tokens=self.max_new_tokens,
-                pad_token_id=self.tokenizer.pad_token_id, eos_token_id=self.tokenizer.eos_token_id, use_cache=True)
+                pad_token_id=self.tokenizer.pad_token_id, eos_token_id=self.stop_token_ids, use_cache=True)
         if self.device.startswith("cuda"):
             torch.cuda.synchronize()
         duration = time.perf_counter() - start

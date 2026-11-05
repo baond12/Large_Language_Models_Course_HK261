@@ -52,11 +52,17 @@ def build_report(root: Path) -> dict:
             ["B1", "SBERT normalize + inner product (cosine)", "Như B0", "Đối chiếu mô tả cosine trong đề"],
             ["R1", "BM25 + dense cosine; RRF", "Như B0", "Tách đóng góp hybrid retrieval"],
             ["R2", "Như R1", "Phân bổ token cho các nguồn; prompt có nhãn", "Tách context/prompt như một nhóm thay đổi"],
-            ["R3 tùy chọn", "Hybrid trên chunk theo Điều", "Như R2", "Thử cấu trúc pháp luật nếu đủ tài nguyên"]]), "",
-        "Các phép so sánh giữ cùng Qwen/Qwen1.5-1.8B, greedy decoding, 4096 input token và tối đa 256 token sinh. "
+            ["R3 tùy chọn", "Hybrid trên chunk theo Điều", "Như R2", "Thử cấu trúc pháp luật nếu đủ tài nguyên"],
+            ["I0", "Dense cosine như B1", "baseline/prefix; tokenizer chat template", "Thay nhóm mô hình sinh + format bằng Qwen2.5-3B-Instruct"],
+            ["I1", "BM25", "Như I0", "Tách tác dụng retrieval với cùng Instruct model"],
+            ["I2", "BM25", "grounded/balanced; cùng chat template", "Tách nhóm prompt/context trên Instruct model"]]), "",
+        "B0/B1/R1/R2/R3 giữ cùng Qwen/Qwen1.5-1.8B. Nhánh I0/I1/I2 dùng Qwen2.5-3B-Instruct. "
+        "Tất cả dùng greedy decoding, 4096 input token (kể cả chat wrapper nếu có) và tối đa 256 token sinh. "
         "Giới hạn input là chính sách vận hành được công bố; bản gốc không kiểm soát ngân sách tương đương. "
         "R2 thay đồng thời packing và prompt nên kết quả chỉ quy cho nhóm thay đổi đó, không riêng từng thành phần. "
-        "Model base có thể làm theo chỉ dẫn kém; việc đổi sang model instruct cần ablation riêng và chưa được tính là đóng góp retrieval.", "",
+        "B1 → I0 thay nhóm mô hình sinh + chat format, không nhận là đóng góp retrieval. I0 → I1 giữ cùng generator, format và prompt; "
+        "I1 → I2 thay nhóm prompt/packing. Mô hình Instruct là giả thuyết cải thiện sau pilot base lặp nội dung, chưa được coi là hiệu quả nếu chưa đo. "
+        "Chi tiết và nguồn chính thức ở `docs/instruct_experiment.md`.", "",
         "Hybrid dùng BM25 positive-IDF (k1=1.5, b=0.75), top-30 mỗi retriever, RRF với hằng số 60 và lấy top-5. "
         "Đây là cấu hình khai báo trước, chưa có bằng chứng tối ưu. Metadata nguồn không lấy từ nhãn câu hỏi. "
         "Mã không yêu cầu fine-tuning; mục tiêu đầu tiên là cải thiện pipeline đúng trọng tâm đề.", "",
@@ -112,6 +118,8 @@ def build_report(root: Path) -> dict:
         "- Vietnamese-SBERT: https://huggingface.co/keepitreal/vietnamese-sbert", 
         "- Giới hạn encoder: https://huggingface.co/keepitreal/vietnamese-sbert/blob/main/sentence_bert_config.json",
         "- Qwen1.5-1.8B: https://huggingface.co/Qwen/Qwen1.5-1.8B",
+        "- Qwen2.5-3B-Instruct: https://huggingface.co/Qwen/Qwen2.5-3B-Instruct",
+        "- Chat templates: https://huggingface.co/docs/transformers/v4.51.3/chat_templating",
         "- SentenceTransformer encode: https://www.sbert.net/docs/package_reference/sentence_transformer/model.html",
         "- FAISS distance metrics: https://github.com/facebookresearch/faiss/wiki/MetricType-and-distances",
         "- RRF, Cormack et al. 2009: https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf",

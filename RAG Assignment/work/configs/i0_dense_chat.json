@@ -1,0 +1,5 @@
+{
+  "name": "i0_dense_chat", "index_dir": "indexes/baseline", "retriever": "dense", "distance": "cosine", "k": 5,
+  "llm": "Qwen/Qwen2.5-3B-Instruct", "chat_template": true, "prompt": "baseline", "packing": "prefix",
+  "max_input_tokens": 4096, "max_new_tokens": 256, "seed": 261
+}

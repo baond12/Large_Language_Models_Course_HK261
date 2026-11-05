@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--device", choices=["cuda", "cpu"], default="cuda")
     parser.add_argument("--stage", choices=["prepare", "pilot", "full"], default="full")
     parser.add_argument("--include-legal", action="store_true")
+    parser.add_argument("--include-instruct", action="store_true", help="Also evaluate the controlled instruct/chat ablations")
     parser.add_argument("--batch-size", type=int, default=32)
     args = parser.parse_args()
     if args.stage == "prepare":
@@ -39,10 +40,12 @@ def main():
                 "--output", "artifacts/retrieval_dev/sparse_diagnostic", "--device", "cpu")
         command("report")
         return
-    command("lock-models")
+    command("lock-models", *(["--model", "Qwen/Qwen2.5-3B-Instruct"] if args.include_instruct else []))
     for mode in modes:
         command("dense", "--index-dir", ROOT / "indexes" / mode, "--device", args.device, "--batch-size", args.batch_size)
     names = ["b0_code", "b1_cosine", "r1_hybrid", "r2_grounded"] + (["r3_legal"] if args.include_legal else [])
+    if args.include_instruct:
+        names += ["i0_dense_chat", "i1_bm25_chat", "i2_bm25_grounded_chat"]
     for name in names:
         command("retrieve", "--config", f"configs/{name}.json", "--split", "diagnostic_dev",
                 "--output", f"artifacts/retrieval_dev/{name}", "--device", args.device)

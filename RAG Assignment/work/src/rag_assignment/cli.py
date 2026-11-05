@@ -41,14 +41,16 @@ def doctor(root: Path, require_cuda: bool = False) -> dict:
     return info
 
 
-def lock_models(root: Path) -> dict:
+def lock_models(root: Path, extra_models: list[str] | None = None) -> dict:
     from huggingface_hub import HfApi
     lock_path = root / "models.lock.json"
-    if lock_path.exists():
-        return read_json(lock_path)
+    result = read_json(lock_path) if lock_path.exists() else {}
+    names = list(dict.fromkeys(["keepitreal/vietnamese-sbert", "Qwen/Qwen1.5-1.8B", *(extra_models or [])]))
+    missing = [name for name in names if name not in result]
+    if not missing:
+        return result
     api = HfApi()
-    result = {}
-    for name in ["keepitreal/vietnamese-sbert", "Qwen/Qwen1.5-1.8B"]:
+    for name in missing:
         info = api.model_info(name)
         if not info.sha or len(info.sha) != 40:
             raise ValueError(f"Could not resolve immutable revision for {name}")
@@ -63,7 +65,8 @@ def main(root: Path | None = None):
     commands = parser.add_subparsers(dest="command", required=True)
     p = commands.add_parser("doctor")
     p.add_argument("--require-cuda", action="store_true")
-    commands.add_parser("lock-models")
+    p = commands.add_parser("lock-models")
+    p.add_argument("--model", action="append", default=[], help="Append a model revision without changing existing locks")
     p = commands.add_parser("prepare")
     p.add_argument("--source-root", type=Path, default=root.parent)
     p.add_argument("--data-dir", type=Path, default=root / "data")
@@ -113,7 +116,7 @@ def main(root: Path | None = None):
     if c == "doctor":
         result = doctor(root, args.require_cuda)
     elif c == "lock-models":
-        result = lock_models(root)
+        result = lock_models(root, args.model)
     elif c == "prepare":
         from .data import prepare
         result = prepare(args.source_root.resolve(), args.data_dir.resolve(), args.seed, args.test_size, args.dev_size)
@@ -157,7 +160,8 @@ def main(root: Path | None = None):
         lock = read_json(root / "models.lock.json")
         device = "cuda" if args.device == "auto" and torch.cuda.is_available() else "cpu" if args.device == "auto" else args.device
         retriever = make_retriever(config, root, device)
-        generator = LocalGenerator(config["llm"], lock[config["llm"]]["revision"], device, config["max_input_tokens"], config["max_new_tokens"])
+        generator = LocalGenerator(config["llm"], lock[config["llm"]]["revision"], device, config["max_input_tokens"], config["max_new_tokens"],
+                                   seed=config.get("seed", 261), chat_template=config.get("chat_template", False))
         hits = retriever.search(args.question, config.get("k", 5))
         result = {"question": args.question, "retrieved": hits,
                   **generator.generate(args.question, hits, config["prompt"], config["packing"])}

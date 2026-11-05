@@ -21,6 +21,27 @@ from rag_assignment.data import prepare
 from repair_jsonl import repair
 
 
+class ModelLockTests(unittest.TestCase):
+    def test_append_new_model_preserves_existing_revisions(self):
+        from rag_assignment.cli import lock_models
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory(dir=TEMP) as temp:
+            root = Path(temp)
+            existing = {"keepitreal/vietnamese-sbert": {"revision": "a" * 40},
+                        "Qwen/Qwen1.5-1.8B": {"revision": "b" * 40}}
+            write_json(root / "models.lock.json", existing)
+            with patch("huggingface_hub.HfApi") as api:
+                api.return_value.model_info.return_value = SimpleNamespace(sha="c" * 40)
+                result = lock_models(root, ["Qwen/Qwen2.5-3B-Instruct"])
+                api.return_value.model_info.assert_called_once_with("Qwen/Qwen2.5-3B-Instruct")
+            for name, metadata in existing.items():
+                self.assertEqual(result[name], metadata)
+            self.assertEqual(result["Qwen/Qwen2.5-3B-Instruct"]["revision"], "c" * 40)
+            with patch("huggingface_hub.HfApi") as api:
+                self.assertEqual(lock_models(root, ["Qwen/Qwen2.5-3B-Instruct"]), result)
+                api.assert_not_called()
+
+
 class PrepareIntegrationTests(unittest.TestCase):
     def test_actual_xlsx_zip_to_atomic_data_and_chunks(self):
         import openpyxl

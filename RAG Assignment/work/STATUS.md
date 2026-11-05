@@ -24,3 +24,9 @@
 Chỉ 51 câu có số hiệu tham chiếu khớp tên tệp corpus sau chuẩn hóa; 779 câu không có nhãn số hiệu parse được. Đây là phép đối chiếu tên tệp, không phải kết luận đáp án vắng toàn corpus. Không thay tập test chính bằng tập covered để tăng điểm mà không công bố. Chưa có cơ sở tuyên bố cải thiện metric generation hoặc bài đã đủ điều kiện nộp.
 
 Theo phân công của người học: người học chạy trong Docker P100 rồi gửi `dist/rag_assignment_results.zip` cùng log; bước tiếp theo là kiểm tra kết quả thật và hoàn thiện phân tích.
+
+## Cập nhật sau pilot trên server
+
+Đã nhận log: dense encode đủ 176.506 vector; retrieval diagnostic_dev 29 câu có Hit@5 B0=0.275862, B1=0.310345, BM25=0.793103, hybrid=0.482759. Pilot 3 câu của B0/BM25/R2 trên GPU 3 hết lỗi OOM nhưng vẫn lặp nội dung và chạm 256 token. Đây là kết quả người học gửi, tệp gốc vẫn trên server; chưa có benchmark generation >=100 câu.
+
+Đã bổ sung nhánh Instruct với chat template, bảo toàn baseline và thiết kế ablation tại `docs/instruct_experiment.md`. Chưa chạy mô hình Instruct thật trên P100; cần cập nhật code server và pilot trước. Người học dùng trực tiếp Docker, không tạo venv; chỉ cài dependency còn thiếu.

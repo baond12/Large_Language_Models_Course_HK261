@@ -1,6 +1,14 @@
 # Chạy trên P100 trong Docker
 
-Người học chạy trên server riêng rồi gửi kết quả về. Chưa kiểm chứng GPU/P100 trực tiếp từ máy Windows hiện tại.
+Người học chạy trên server riêng rồi gửi kết quả về. Đã nhận log preflight P100 và pilot từ server; không có kết nối điều khiển server trực tiếp từ phiên chat.
+
+## Môi trường Docker hiện tại
+
+Theo yêu cầu người học, chạy trực tiếp trong container `baond_llm`, chỉ cài dependency còn thiếu. Docker Python 3.10/PyTorch 2.2.1+cu118 đã vượt qua preflight và pilot base; không cần tạo venv hoặc tự động cài lại môi trường theo các lệnh tham khảo bên dưới. Mọi run lưu phiên bản thư viện thực tế.
+
+GPU 1 hiện có dịch vụ `uvicorn` chiếm VRAM theo log người học; dùng `CUDA_VISIBLE_DEVICES=3` cho pilot tiếp theo. Lệnh có tải dữ liệu/model cần proxy `http://proxy.hcm.fpt.vn:80` qua `http_proxy` và `https_proxy`. Khi dùng `docker exec`, truyền các biến bằng `-e` vì export ở một shell khác không tự được giữ cho exec mới.
+
+Đã có corpus, split, BM25 và 176.506 vector SBERT trên server. Cập nhật nhánh Instruct không cần xây lại các index này. Chỉ sau khi cập nhật code và kiểm thử, khóa thêm model bằng `lock-models --model Qwen/Qwen2.5-3B-Instruct` rồi chạy cấu hình mới với thư mục run mới. Xem `docs/instruct_experiment.md`.
 
 ## 1 Đưa code và dữ liệu lên server
 
@@ -28,7 +36,7 @@ Giữ `/workspace/rag-work` trên volume bền vững để không mất index/c
 
 ## 2 Cài trong container hiện có
 
-Ưu tiên Python 3.11 và môi trường riêng. Nếu container đã có PyTorch hoạt động trên P100, kiểm tra `doctor` trước khi quyết định thay phiên bản. Cấu hình tham khảo đã chọn:
+Nếu khởi tạo container mới, có thể tham khảo cấu hình Python 3.11 bên dưới. Đây không phải yêu cầu cài lại Docker đang chạy của người học. Nếu container đã có PyTorch hoạt động trên P100, kiểm tra `doctor` trước khi quyết định thay phiên bản:
 
 ```bash
 cd /workspace/rag-work

@@ -28,7 +28,19 @@ Thư mục `--source-root` phải chứa đúng bốn tệp: `Dataset.zip`, `RES
 | r2_grounded | Như R1; chia ngân sách context cho nguồn và prompt yêu cầu dẫn nguồn |
 | r3_legal | Tùy chọn: chia theo Điều, chunk 1000 ký tự/overlap 100 |
 
-Mọi cấu hình chính giữ cùng `Qwen/Qwen1.5-1.8B`, greedy, 4096 input token và 256 generated token. Không mặc định fine-tune. R3 cần thêm thời gian/index, bật bằng `--include-legal` từ vòng dev đầu tiên; nếu đã xem test, không thêm cấu hình rồi tuyên bố test cũ vẫn là holdout độc lập.
+Các cấu hình B0/B1/R1/R2/R3 giữ cùng `Qwen/Qwen1.5-1.8B`, greedy, 4096 input token và 256 generated token. Không mặc định fine-tune. R3 cần thêm thời gian/index, bật bằng `--include-legal` từ vòng dev đầu tiên; nếu đã xem test, không thêm cấu hình rồi tuyên bố test cũ vẫn là holdout độc lập.
+
+### Nhánh Instruct sau pilot
+
+Pilot trên server cho thấy các cấu hình base lặp câu và chạm giới hạn output. Đã bổ sung ba cấu hình thử nghiệm, **chưa chạy mô hình thật trên P100 cho nhánh mới**:
+
+- `i0_dense_chat`: dense cosine, prompt baseline, Qwen2.5-3B-Instruct và chat template.
+- `i1_bm25_chat`: như I0, thay retriever bằng BM25 để tách tác dụng retrieval.
+- `i2_bm25_grounded_chat`: như I1, thay prompt/packing bằng grounded/balanced.
+
+Tất cả giữ cùng split, encoder/evaluator, 4096 input và 256 output token. Khóa model mới bằng `python3 run.py lock-models --model Qwen/Qwen2.5-3B-Instruct`; khóa cũ được giữ nguyên. Thêm `--include-instruct` nếu dùng bộ chạy tự động. Thiết kế và nguồn chính thức ở [docs/instruct_experiment.md](docs/instruct_experiment.md).
+
+Thay đổi mô hình và chat format là một nhóm cải tiến generation, không gán cho retrieval. Dùng thư mục run mới sau cập nhật vì source fingerprint thay đổi. Index hiện tại được tái sử dụng. Theo yêu cầu người học, có thể chạy trực tiếp trong Docker hiện có và chỉ cài thư viện còn thiếu, không bắt buộc tạo venv hoặc cài lại toàn bộ requirements.
 
 ## Quy trình và đầu ra
 

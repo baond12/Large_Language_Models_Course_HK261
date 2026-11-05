@@ -153,6 +153,37 @@ class DataTests(unittest.TestCase):
 
 
 class ContextTests(unittest.TestCase):
+    def test_chat_wrapper_is_inside_token_budget(self):
+        class ChatTokenizer(CharTokenizer):
+            chat_template = "test template"
+
+            def apply_chat_template(self, messages, tokenize, add_generation_prompt):
+                assert tokenize is False and add_generation_prompt is True
+                return "<user>" + messages[0]["content"] + "</user><assistant>"
+
+        prompt, meta = build_prompt("Câu hỏi riêng?", passages(), ChatTokenizer(), 1200, "grounded", "balanced", True)
+        self.assertTrue(prompt.startswith("<user>"))
+        self.assertTrue(prompt.endswith("<assistant>"))
+        self.assertIn("Câu hỏi riêng?", prompt)
+        self.assertLessEqual(meta["input_tokens"], 1200)
+        self.assertTrue(meta["chat_template"])
+        self.assertTrue(all(p["included_tokens"] > 0 for p in meta["passages"]))
+
+    def test_chat_format_fails_closed_without_template(self):
+        with self.assertRaisesRegex(ValueError, "no chat template"):
+            build_prompt("Hỏi?", passages(), CharTokenizer(), 1200, chat_template=True)
+
+    def test_plain_prompt_does_not_use_available_chat_template(self):
+        class Tokenizer(CharTokenizer):
+            chat_template = "unused"
+
+            def apply_chat_template(self, *args, **kwargs):
+                raise AssertionError("Legacy baseline must not call chat formatting")
+
+        prompt, meta = build_prompt("Hỏi?", [], Tokenizer(), 1200)
+        self.assertTrue(prompt.startswith("Bạn là một trợ lý thông minh."))
+        self.assertFalse(meta["chat_template"])
+
     def test_prompt_keeps_question_and_fits(self):
         question = "Câu hỏi rất quan trọng?"
         prompt, metadata = build_prompt(question, passages(), CharTokenizer(), 1200, "grounded", "balanced")

@@ -111,7 +111,8 @@ def run_generation(config: dict, root: Path, data_dir: Path, split: str, output:
     retrieval_device = "cuda" if device == "auto" and torch.cuda.is_available() else "cpu" if device == "auto" else device
     retriever = make_retriever(config, root, retrieval_device)
     generator = LocalGenerator(config["llm"], llm_revision, device, config.get("max_input_tokens", 4096),
-                               config.get("max_new_tokens", 256), config.get("seed", 261))
+                               config.get("max_new_tokens", 256), config.get("seed", 261),
+                               chat_template=config.get("chat_template", False))
     manifest = read_json(manifest_path)
     manifest["generator"] = generator.info
     write_json(manifest_path, manifest)
@@ -173,6 +174,7 @@ def score_run(run_dir: Path, data_dir: Path, root: Path, device: str = "cpu") ->
     key_metrics = ["Cosine_Similarity", "Jaccard_Similarity", "Token_Overlap", "BLEU_Score", "ROUGE_L",
                    "Token_Overlap_Set_PDF", "BLEU_Set_PDF"]
     summary = {"name": manifest["config"]["name"], "split": manifest["split"], "questions": len(records),
+        "generator": manifest.get("generator", {}),
         "errors": sum(bool(p.get("error")) for p in predictions),
         "empty_answers": sum(not p["answer"].strip() for p in predictions),
         "generation_cap_reached": sum(p.get("reached_generation_cap", False) for p in predictions),
