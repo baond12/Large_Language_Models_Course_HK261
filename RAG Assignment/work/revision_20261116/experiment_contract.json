@@ -149,12 +149,13 @@
   },
   "quality_status": {
     "framework_layout": "passed_structural_and_all_page_visual_review",
-    "original_notebook_run": "attempt_01_saved_FAISS_then_failed_on_duplicate_revision_during_LLM_pipeline_creation",
+    "original_notebook_run": "pilot02_completed_one_question_with_prompt_in_scored_response",
     "new_full_comparison": "not_run",
     "clean_model_rerun": "not_run",
     "final_report": "not_ready",
     "baseline_source_preparation": "CPU_checks_passed_GPU_execution_pending",
-    "revision_fix": "explicit_pt_CPU_regression_passed_P100_retry_pending"
+    "revision_fix": "P100_pilot02_loaded_Qwen_and_generated_successfully",
+    "output_contract_fix": "official_0_3_1_method_and_tiny_CPU_model_tests_passed_P100_pilot03_pending"
   },
   "user_review": "required_after_QA_QC_before_final_packaging",
   "final_zip_allowed": false,

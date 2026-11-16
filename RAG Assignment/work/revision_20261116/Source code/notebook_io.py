@@ -201,9 +201,25 @@ def reuse_index():
 
 def record_model(llm, embeddings):
     model, tokenizer = llm.pipeline.model, llm.pipeline.tokenizer
-    write_json(RUN / 'model_info.json', {'model': model.config._name_or_path, 'revision': getattr(model.config, '_commit_hash', None), 'parameters': sum(p.numel() for p in model.parameters()), 'dtype': str(model.dtype), 'generation_config': model.generation_config.to_dict(), 'pipeline_kwargs': getattr(llm, 'pipeline_kwargs', {}), 'model_kwargs': getattr(llm, 'model_kwargs', {}), 'tokenizer_model_max_length': tokenizer.model_max_length, 'embedding_revision_requested': EMBEDDING_REVISION, 'max_new_tokens_at_generate_call': 256, 'extra_input_token_budget': None, 'completion_slicing_added': False})
+    write_json(RUN / 'model_info.json', {'model': model.config._name_or_path, 'revision': getattr(model.config, '_commit_hash', None), 'parameters': sum(p.numel() for p in model.parameters()), 'dtype': str(model.dtype), 'generation_config': model.generation_config.to_dict(), 'pipeline_kwargs': getattr(llm, 'pipeline_kwargs', {}), 'model_kwargs': getattr(llm, 'model_kwargs', {}), 'tokenizer_model_max_length': tokenizer.model_max_length, 'embedding_revision_requested': EMBEDDING_REVISION, 'generation_call_pipeline_kwargs': {'max_new_tokens': 256, 'return_full_text': False}, 'extra_input_token_budget': None, 'completion_slicing_added': False})
     if sum(p.numel() for p in model.parameters()) >= 4_000_000_000:
         raise ValueError('LLM must have fewer than 4 billion parameters')
+    if not getattr(model, '_baseline_observer_installed', False):
+        original_generate = model.generate
+        def observed_generate(*args, **kwargs):
+            output = original_generate(*args, **kwargs)
+            config = kwargs.get('generation_config', model.generation_config)
+            limit = kwargs.get('max_new_tokens', getattr(config, 'max_new_tokens', None))
+            _last['backend_generation'] = {'effective_max_new_tokens': limit, 'do_sample': kwargs.get('do_sample', getattr(config, 'do_sample', None))}
+            input_ids = kwargs.get('input_ids', args[0] if args else None)
+            sequences = getattr(output, 'sequences', output)
+            if input_ids is not None and hasattr(input_ids, 'shape') and hasattr(sequences, 'shape'):
+                _last['input_tokens'] = int(input_ids.shape[-1])
+                _last['generated_tokens'] = int(sequences.shape[-1]) - int(input_ids.shape[-1])
+                _last['reached_generation_cap'] = bool(limit is not None and _last['generated_tokens'] >= limit)
+            return output
+        model.generate = observed_generate
+        model._baseline_observer_installed = True
 
 
 def capture_context(question, docs, prompt):
@@ -223,6 +239,8 @@ def capture_error(question):
 
 def record_result(idx, row, response, metrics):
     item = {'id': row['question_id'], 'excel_row': int(row['excel_row']), 'question': row['Câu Hỏi'], 'reference': str(row['Trả lời']).strip(), 'answer': response, 'metrics_notebook': metrics, 'error': _last.get('error'), 'prompt': _last.get('prompt'), 'passages': _last.get('passages', []), 'returned_text_starts_with_prompt': bool(_last.get('prompt') and response.startswith(_last['prompt'])), 'latency_seconds': time.perf_counter()-_last['started'] if _last.get('started') else None}
+    for key in ['backend_generation', 'input_tokens', 'generated_tokens', 'reached_generation_cap']:
+        item[key] = _last.get(key)
     with (RUN / 'predictions.jsonl').open('a', encoding='utf-8') as f:
         f.write(json.dumps(item, ensure_ascii=False) + '\n')
     print(f'RECORDED {idx+1}/{N} {row["question_id"]} error={bool(item["error"])}', flush=True)
@@ -243,6 +261,8 @@ def finish(results_df, mean_metrics, normalize_text):
         scores.append({'id': record['id'], 'Cosine_Similarity': record['metrics_notebook']['Cosine_Similarity'], 'Jaccard_Similarity': record['metrics_notebook']['Jaccard_Similarity'], 'Token_Overlap_Set_PDF': overlap/len(r) if r else 0, 'BLEU_Set_PDF': bp*overlap/len(p) if p else 0, 'ROUGE_L': record['metrics_notebook']['ROUGE_L']})
     pdf_means = {k: sum(row[k] for row in scores)/N for k in scores[0] if k != 'id'}
     write_json(RUN / 'scores_pdf.json', scores)
-    summary = {'status': 'completed_with_errors' if any(r['error'] for r in records) else 'notebook_execution_complete', 'questions': N, 'limited_run': IS_PILOT, 'eligible_for_final_evaluation': N >= 100 and not any(r['error'] for r in records), 'errors': sum(bool(r['error']) for r in records), 'empty_answers': sum(not r['answer'].strip() for r in records), 'returned_prompt_prefix_count': sum(r['returned_text_starts_with_prompt'] for r in records), 'metrics_notebook': mean_metrics, 'metrics_pdf': pdf_means, 'distance_branch': MODE, 'elapsed_seconds': time.perf_counter()-_started, 'predictions_sha256': sha(RUN / 'predictions.jsonl'), 'rerun_independently_verified': False}
+    prompt_count = sum(r['returned_text_starts_with_prompt'] for r in records)
+    contract_violations = sum(not r['error'] and (r.get('backend_generation') is None or r['backend_generation'].get('effective_max_new_tokens') != 256 or r.get('generated_tokens') is None or r['generated_tokens'] > 256) for r in records)
+    summary = {'status': 'completed_with_errors' if any(r['error'] for r in records) else 'notebook_execution_complete', 'questions': N, 'limited_run': IS_PILOT, 'eligible_for_final_evaluation': N >= 100 and not any(r['error'] for r in records) and prompt_count == 0 and contract_violations == 0, 'errors': sum(bool(r['error']) for r in records), 'empty_answers': sum(not r['answer'].strip() for r in records), 'returned_prompt_prefix_count': prompt_count, 'generation_contract_violations': contract_violations, 'max_observed_generated_tokens': max((r['generated_tokens'] for r in records if isinstance(r.get('generated_tokens'), int)), default=None), 'metrics_notebook': mean_metrics, 'metrics_pdf': pdf_means, 'distance_branch': MODE, 'elapsed_seconds': time.perf_counter()-_started, 'predictions_sha256': sha(RUN / 'predictions.jsonl'), 'rerun_independently_verified': False}
     write_json(RUN / 'summary.json', summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))

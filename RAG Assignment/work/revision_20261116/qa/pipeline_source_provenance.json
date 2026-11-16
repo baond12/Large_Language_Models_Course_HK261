@@ -1,0 +1,8 @@
+{
+  "publisher": "PyPI langchain-huggingface",
+  "version": "0.3.1",
+  "wheel_url": "https://files.pythonhosted.org/packages/bf/26/7c5d4b4d3e1a7385863acc49fb6f96c55ccf941a750991d18e3f6a69a14a/langchain_huggingface-0.3.1-py3-none-any.whl",
+  "wheel_sha256": "de10a692dc812885696fbaab607d28ac86b833b0f305bccd5d82d60336b07b7d",
+  "source_sha256": "b7f0873f2acb2bc1760fc2fb68dc1f8fa50a1f35d792040251df7b8267d20679",
+  "installation_performed": false
+}

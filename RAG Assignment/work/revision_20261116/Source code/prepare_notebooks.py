@@ -63,7 +63,7 @@ print(f"Fixed evaluation pairs: {len(df)}")
     updated[5] = replace_once(updated[5], '    "faiss_db",', '    str(baseline_io.INDEX_DIR),')
     updated[5] = replace_once(updated[5], 'model_kwargs={"temperature": 0, "max_length": 1024}', 'model_kwargs={"temperature": 0, "max_length": 1024, "revision": baseline_io.LLM_REVISION},\n    pipeline_kwargs={"framework": "pt"}')
     updated[5] = replace_once(updated[5], '# ==================== HELPER FUNCTIONS ====================', 'baseline_io.record_model(llm, embeddings)\n\n# ==================== HELPER FUNCTIONS ====================')
-    updated[5] = replace_once(updated[5], '    output = llm.generate([prompt],  max_new_tokens=256)', '    baseline_io.capture_context(question, docs, prompt)\n    output = llm.generate([prompt],  max_new_tokens=256)')
+    updated[5] = replace_once(updated[5], '    output = llm.generate([prompt],  max_new_tokens=256)', '    baseline_io.capture_context(question, docs, prompt)\n    output = llm.generate([prompt], pipeline_kwargs={"max_new_tokens": 256, "return_full_text": False})')
     updated[5] = replace_once(updated[5], '    except Exception as e:\n', '    except Exception as e:\n        baseline_io.capture_error(question)\n')
     updated[5] = replace_once(updated[5], '    results.append(metrics)', '    baseline_io.record_result(idx, row, response, metrics)\n    results.append(metrics)')
     updated[5] = replace_once(updated[5], 'results_df.to_csv("rag_baseline_metrics.csv", index=False)', 'results_df.to_csv(baseline_io.RUN / "rag_baseline_metrics.csv", index=False)')
@@ -91,6 +91,12 @@ print(f"Fixed evaluation pairs: {len(df)}")
             if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name) and call.func.value.id == 'baseline_io':
                 return None
             return self.generic_visit(node)
+        def visit_Call(self, node):
+            if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and node.func.value.id == 'llm' and node.func.attr == 'generate':
+                expected = ast.parse('llm.generate([prompt], pipeline_kwargs={"max_new_tokens": 256, "return_full_text": False})').body[0].value
+                assert ast.dump(node, include_attributes=False) == ast.dump(expected, include_attributes=False), 'Unexpected generation-call change'
+                return ast.parse('llm.generate([prompt], max_new_tokens=256)').body[0].value
+            return self.generic_visit(node)
     for name, fn in original_functions.items():
         actual = RemoveObserver().visit(deepcopy(derived_functions[name]))
         assert ast.dump(fn, include_attributes=False) == ast.dump(actual, include_attributes=False), name
@@ -102,7 +108,7 @@ print(f"Fixed evaluation pairs: {len(df)}")
         after_lines = (after.rstrip('\n') + '\n').splitlines(keepends=True)
         diff.extend(difflib.unified_diff(before_lines, after_lines, fromfile=f'original/cell_{i}', tofile=f'{mode}/cell_{i}'))
     (ROOT / f'changes_{mode}.diff').write_text(''.join(diff), encoding='utf-8')
-    return {'mode': mode, 'file': path.name, 'original_functions_preserved': list(original_functions), 'original_sha256': EXPECTED_SHA, 'derived_sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'gpu_execution_verified': False}
+    return {'mode': mode, 'file': path.name, 'original_functions_preserved': [name for name in original_functions if name != 'rag_query'], 'rag_query_change': 'Only forward max_new_tokens via pipeline_kwargs and request completion-only output; retrieval and prompt preserved', 'original_sha256': EXPECTED_SHA, 'derived_sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'gpu_execution_verified': False}
 
 
 if __name__ == '__main__':

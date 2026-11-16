@@ -17,7 +17,7 @@
 - Bản Word trong `Manual` là khung trước thực nghiệm, chưa phải báo cáo hoàn chỉnh.
 - Các ô “Chờ kết quả” phải được thay bằng số liệu của đợt chạy notebook giảng viên. Chưa sử dụng các số cũ làm kết quả baseline mới.
 - Các phiên bản bài nộp, ZIP, báo cáo, code và kết quả cũ được giữ nguyên để truy vết. Chúng không phải bản đã được người học duyệt cho đợt này.
-- Lần chạy `instructor_pilot_1q_01` trên P100 số 3 đã hoàn tất cell 0–4, lưu FAISS 176.506 vector từ 16.440 văn bản; lỗi truyền trùng revision khi khởi tạo pipeline LLM ở cell 5. Chưa có câu trả lời hay điểm số. Bản sửa khai báo framework PyTorch đã qua kiểm thử CPU, chờ chạy lại trên server bằng chỉ mục đã lưu. Xem `BASELINE_FAILURE_01.md`.
+- Pilot 01 đã lưu FAISS 176.506 vector từ 16.440 văn bản, rồi lỗi duplicate revision. Pilot 02 đã chạy hết 1 câu bằng chỉ mục đó trên P100 số 3, nhưng chuỗi chấm điểm chứa prompt và giới hạn sinh chưa được chuyển đúng qua wrapper. Giữ log/điểm cũ để truy vết, không sử dụng chúng làm điểm câu trả lời của report. Bản sửa định dạng đầu ra và chuyển giới hạn 256 token đã qua kiểm thử CPU, chờ pilot 03. Xem `BASELINE_FAILURE_01.md` và `PILOT_02_OUTPUT_QC.md`.
 - Môi trường chạy dự kiến: Docker `baond_llm`, GPU vật lý số 3, `CUDA_VISIBLE_DEVICES=3`; người học tự chạy trên server. Không tạo môi trường Python riêng, không tự nâng cấp toàn bộ thư viện.
 
 ## Quy định về baseline

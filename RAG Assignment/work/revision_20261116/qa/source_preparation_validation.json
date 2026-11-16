@@ -1,18 +1,19 @@
 {
   "scope": "local notebook-source and IO preparation only",
-  "original_functions_preserved": 8,
+  "original_functions_preserved": 7,
   "generated_notebook_branches": [
     "notebook",
     "cosine"
   ],
-  "cpu_tests_passed": 6,
+  "cpu_tests_passed": 7,
   "cpu_tests": [
-    "original_prompt_call_and_raw_return_unchanged",
     "same_100_RES_pairs_ids_questions_references",
     "zip_escape_rejected",
     "empty_answers_in_denominator_and_PDF_Counter_separation",
     "one_question_pilot_not_final_evaluation",
-    "reused_index_hash_check_rejects_modified_file"
+    "reused_index_hash_check_rejects_modified_file",
+    "original_prompt_retrieval_unchanged_with_allowlisted_generation_API_fix",
+    "reject_final_evaluation_with_prompt_or_unverified_generation_limit"
   ],
   "cpu_test_runtime": "Codex bundled Python 3.12",
   "python_3_10_syntax_validated": true,
@@ -22,5 +23,7 @@
   "independent_model_rerun_verified": false,
   "source_reproduction_fully_certified": false,
   "one_question_pilot_supported": true,
-  "same_notebook_index_reuse_supported": true
+  "same_notebook_index_reuse_supported": true,
+  "rag_query_api_change": "forward max_new_tokens through pipeline_kwargs and request return_full_text=False; prompt and retrieval unchanged",
+  "current_output_fix_on_P100_verified": false
 }

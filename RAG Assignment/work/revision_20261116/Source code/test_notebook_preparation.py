@@ -26,6 +26,24 @@ def load_functions(source, namespace):
 
 
 class NotebookPreparationTests(unittest.TestCase):
+    def test_full_evaluation_rejects_prompt_echo_and_unforwarded_limit(self):
+        with tempfile.TemporaryDirectory(prefix='output_gate_', dir=ROOT.parent/'qa') as tmp:
+            run = Path(tmp)
+            metrics = {name: 1. for name in ['Cosine_Similarity', 'Jaccard_Similarity', 'Token_Overlap', 'BLEU_Score', 'ROUGE_L']}
+            records = [{'id': uid, 'answer': 'a', 'reference': 'a', 'error': None, 'returned_text_starts_with_prompt': False, 'backend_generation': {'effective_max_new_tokens': 256}, 'generated_tokens': 1, 'metrics_notebook': metrics} for uid in io.CONTRACT['planned_evaluation_ids']]
+            def finish():
+                (run/'predictions.jsonl').write_text('\n'.join(json.dumps(r) for r in records)+'\n', encoding='utf-8')
+                with patch.object(io, 'RUN', run), redirect_stdout(StringIO()):
+                    io.finish([None]*100, metrics, lambda text: text)
+                return json.loads((run/'summary.json').read_text(encoding='utf-8'))
+            records[0]['returned_text_starts_with_prompt'] = True
+            self.assertFalse(finish()['eligible_for_final_evaluation'])
+            records[0]['returned_text_starts_with_prompt'] = False
+            records[0]['backend_generation']['effective_max_new_tokens'] = None
+            self.assertFalse(finish()['eligible_for_final_evaluation'])
+            records[0]['backend_generation']['effective_max_new_tokens'] = 256
+            self.assertTrue(finish()['eligible_for_final_evaluation'])
+
     def test_one_question_pilot_is_separate_from_full_evaluation(self):
         with tempfile.TemporaryDirectory(prefix='pilot_', dir=ROOT.parent/'qa') as tmp:
             run = Path(tmp)
@@ -60,7 +78,7 @@ class NotebookPreparationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'modified index file'):
                     io.reuse_index()
 
-    def test_original_prompt_generate_call_and_raw_return_are_preserved(self):
+    def test_original_prompt_retrieval_and_declared_generation_fix(self):
         original = json.loads(ORIGINAL.read_text(encoding='utf-8'))
         for mode in ['notebook', 'cosine']:
             build(mode)
@@ -96,9 +114,10 @@ class NotebookPreparationTests(unittest.TestCase):
                 answer_before = before['rag_query']('Test question')
                 calls_before = deepcopy(calls); calls.clear()
                 answer_after = after['rag_query']('Test question')
-            self.assertEqual(calls, calls_before)
+            self.assertEqual(calls[0], calls_before[0])
+            self.assertEqual(calls[-1][1], calls_before[-1][1])
             self.assertEqual(answer_after, answer_before)
-            self.assertEqual(calls[-1][2], {'max_new_tokens': 256})
+            self.assertEqual(calls[-1][2], {'pipeline_kwargs': {'max_new_tokens': 256, 'return_full_text': False}})
             self.assertEqual(observed[0][2], calls[-1][1][0])
 
     def test_real_RES_selection_has_exact_same_100_ids_and_questions(self):

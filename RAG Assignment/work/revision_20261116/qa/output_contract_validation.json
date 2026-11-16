@@ -1,0 +1,8 @@
+{
+  "scope": "actual LangChain 0.3.1 method with an observable pipeline, not a model-quality test",
+  "library_source_sha256": "b7f0873f2acb2bc1760fc2fb68dc1f8fa50a1f35d792040251df7b8267d20679",
+  "old_top_level_limit_not_forwarded_confirmed": true,
+  "fixed_256_limit_forwarded": true,
+  "fixed_completion_only_output": true,
+  "P100_Qwen_retry_verified": false
+}

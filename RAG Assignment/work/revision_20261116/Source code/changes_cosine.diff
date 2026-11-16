@@ -283,14 +283,16 @@
  
  # ==================== HELPER FUNCTIONS ====================
  def normalize_text(text: str) -> str:
-@@ -67,6 +73,7 @@
+@@ -67,7 +73,8 @@
  Trả lời ngắn gọn và chính xác nhất có thể:
  """
  
+-    output = llm.generate([prompt],  max_new_tokens=256)
 +    baseline_io.capture_context(question, docs, prompt)
-     output = llm.generate([prompt],  max_new_tokens=256)
++    output = llm.generate([prompt], pipeline_kwargs={"max_new_tokens": 256, "return_full_text": False})
      generated_text = output.generations[0][0].text
      print(generated_text)
+     return generated_text
 @@ -139,6 +146,7 @@
      try:
          response = rag_query(question)

@@ -2,7 +2,7 @@
 
 ## Trạng thái và phạm vi
 
-Đây là bản điều chỉnh từ notebook giảng viên, chưa có lần thực thi GPU được kiểm chứng trong đợt ngày 16/11/2026. Không thay đường chạy bằng pipeline RAG tự viết trước đây. Kết quả baseline mới chỉ được ghi vào report sau khi notebook thực thi đủ ít nhất 100 cặp và đã kiểm tra đầu ra.
+Đây là bản điều chỉnh từ notebook giảng viên. Pilot 01 đã xây/lưu FAISS rồi lỗi nạp LLM; pilot 02 chạy hết một câu trên GPU nhưng phát hiện chuỗi chấm điểm chứa prompt và giới hạn sinh chưa được chuyển đúng qua wrapper. Hai log được giữ nguyên; các điểm pilot 02 không được dùng làm điểm của riêng câu trả lời. Bản sửa cách gọi pipeline cần được thử lại trước thực nghiệm 100 cặp. Không thay đường chạy bằng pipeline RAG tự viết trước đây.
 
 Notebook gốc ở `../../../Baseline.ipynb` tính từ thư mục này được giữ nguyên. Công cụ tạo bản Docker đối chiếu SHA256 của bản gốc trước khi làm việc. Hai file `.diff` liệt kê thay đổi từng cell để người đọc kiểm tra.
 
@@ -23,7 +23,7 @@ Nếu hai nhánh tương đương trong môi trường đã xác nhận, sẽ tr
 6. Thêm lưu cấu hình, prompt, đoạn truy hồi, raw response, lỗi, điểm từng câu, notebook đã thực thi và phiên bản thư viện. Các lệnh quan sát không sửa prompt hoặc response.
 7. Nhánh cosine có thay đổi khoảng cách/chuẩn hóa được nêu rõ. Nhánh notebook không có thay đổi đó.
 
-Các hàm chuẩn hóa, rag_query và metric được lấy từ nguồn notebook. Kiểm tra AST xác nhận tám hàm này giữ nguyên sau khi loại lời gọi ghi log được bổ sung trong rag_query. Vẫn giữ chunk 2000/50, top 5, prompt gốc, max_new_tokens=256, cách gọi HuggingFacePipeline và cách trả về chuỗi của notebook. Không thêm ngân sách đầu vào 4096, cắt completion, đổi FP16, đổi decoding hoặc tối ưu lại vòng embedding trong lần chuẩn bị này. Điều này cũng có nghĩa là chưa thể cam kết phần gọi mô hình sẽ chạy trên môi trường hiện có; nếu có lỗi phải lưu và sửa theo bằng chứng.
+Các hàm được lấy từ nguồn notebook. Kiểm tra AST giữ nguyên bảy hàm chuẩn hóa/metric; với rag_query chỉ chấp nhận thêm ghi log và thay đúng lời gọi sinh bằng `llm.generate([prompt], pipeline_kwargs={"max_new_tokens": 256, "return_full_text": False})`. Truy hồi và prompt được đối chiếu giữ nguyên. Đây là sửa ranh giới API theo lỗi đã quan sát, không được nhận là phương pháp cải tiến chất lượng. Giữ chunk 2000/50, top 5, mô hình và cấu hình số học; không thêm ngân sách đầu vào 4096 hoặc tối ưu vòng embedding. Prompt được lưu riêng, câu trả lời là phần pipeline sinh thêm; không tự cắt chuỗi bằng suy đoán.
 
 ## Bước hiện tại trên server — chỉ kiểm tra môi trường
 
@@ -42,7 +42,7 @@ Lệnh này chưa xây index, tải mô hình hoặc đánh giá 100 câu. Nó b
 
 Theo yêu cầu chạy thử trước: thêm `--limit 1` để thực thi một câu bằng notebook. Lần đầu vẫn phải xây FAISS trên toàn bộ corpus để giữ đúng truy hồi baseline. Pilot được đánh dấu limited_run và không đáp ứng yêu cầu đánh giá tối thiểu 100 cặp.
 
-Sau khi kiểm tra output và log của một câu, chạy cùng nhánh với tên lần chạy mới, bỏ `--limit`, thêm `--reuse-index-from <tên-lần-pilot>`. Công cụ đối chiếu dữ liệu, revision, logic tạo index, thư viện truy hồi và hash hai tệp FAISS trước khi dùng lại. Chỉ mục là chỉ mục do chính notebook vừa tạo, không phải chỉ mục từ pipeline tự viết trước đây. Luồng sinh câu trả lời và các hàm metric vẫn giữ nguyên. Runner hiển thị stdout và tiến độ khi notebook đang chạy.
+Sau khi kiểm tra output và log của một câu, chạy cùng nhánh với tên lần chạy mới, bỏ `--limit`, thêm `--reuse-index-from <tên-lần-pilot>`. Công cụ đối chiếu dữ liệu, revision, logic tạo index, thư viện truy hồi và hash hai tệp FAISS trước khi dùng lại. Chỉ mục là chỉ mục do chính notebook vừa tạo, không phải chỉ mục từ pipeline tự viết trước đây. Bản sửa định dạng đầu ra và chuyển tham số sinh phải áp dụng nhất quán cho baseline và các phương pháp so sánh. Runner hiển thị stdout và tiến độ khi notebook đang chạy.
 
 Các lệnh dưới là hướng dẫn chuẩn bị cho bước sau, chưa được xác nhận thực chạy GPU. Dùng tên lần chạy mới để bảo toàn log cũ.
 
@@ -73,6 +73,14 @@ Notebook được chạy thật qua Jupyter kernel bằng nbclient. Mỗi cell h
 Bằng chứng notebook và môi trường ở `artifacts/notebook_execution_20261116/<run-name>`: executed.ipynb, notebook.log, execution_status.json, pip-freeze.txt và failure_traceback.txt nếu có lỗi. Tiến độ của một cell dài được cập nhật trong kernel; bản notebook ngoài chỉ lưu sau khi cell hoàn tất.
 
 ## Chạy lại và nghiệm thu
+
+### Kiểm tra đầu ra phát hiện trong pilot 02
+
+Pilot 02 có errors=0 nhưng returned_prompt_prefix_count=1. Mã nguồn chính thức langchain-huggingface 0.3.1 xác nhận `_generate` chỉ chuyển dictionary pipeline_kwargs xuống pipeline; tham số max_new_tokens ở ngoài dictionary bị bỏ qua. Bản mới chuyển đúng max_new_tokens=256 và return_full_text=False qua dictionary này. Không bật sampling hoặc thay prompt để sửa lỗi định dạng.
+
+Observer ghi trực tiếp số token đầu vào/được sinh và giới hạn có hiệu lực ở lời gọi model.generate, trả nguyên kết quả cho pipeline. Summary báo generation_contract_violations; không nhận đạt thực nghiệm chính nếu còn prompt trong câu trả lời hoặc không xác nhận giới hạn sinh 256 token. Các công thức metric của notebook không đổi; chỉ chấm riêng câu trả lời. Giữ nguyên raw output, metric và log pilot 02 dưới tên cũ để truy vết; không gọi việc loại prompt khỏi phép chấm là cải tiến RAG.
+
+Kiểm thử `test_pipeline_output_contract.py` chạy chính method của thư viện 0.3.1 với một pipeline quan sát được; không giả lập lại method đó. `test_revision_compatibility.py` kiểm tra observer với mô hình rất nhỏ trên CPU. Hai kiểm tra không thay thế pilot Qwen trên P100.
 
 ### Lỗi truyền trùng revision đã quan sát trên server
 

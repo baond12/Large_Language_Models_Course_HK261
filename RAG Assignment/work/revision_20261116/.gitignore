@@ -6,3 +6,5 @@ qa/*
 !qa/source_preparation_validation.json
 !qa/render_info.json
 !qa/revision_compatibility_validation.json
+!qa/output_contract_validation.json
+!qa/pipeline_source_provenance.json

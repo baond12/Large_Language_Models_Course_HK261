@@ -4,6 +4,8 @@ Uses a tiny randomly initialized model, not Qwen or any assignment result.
 """
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import torch
 from tokenizers import Tokenizer
@@ -37,7 +39,17 @@ def main():
     fixed = pipeline('text-generation', model=model, tokenizer=tokenizer, device=-1, model_kwargs={'revision': 'fixed-test-revision'}, framework='pt')
     result = fixed('hello', max_new_tokens=2, do_sample=False)
     assert isinstance(result[0]['generated_text'], str)
-    report = {'scope': 'offline tiny-model CPU compatibility test, not assignment evaluation', 'transformers': transformers_version, 'torch': torch.__version__, 'failure_reproduced': caught, 'explicit_pt_pipeline_generates': True, 'qwen_on_P100_verified': False}
+    import notebook_io as baseline_io
+    trace_dir = Path(__file__).resolve().parent.parent / 'qa/tiny_generation_observer'
+    trace_dir.mkdir(exist_ok=True)
+    with patch.object(baseline_io, 'RUN', trace_dir):
+        baseline_io.record_model(SimpleNamespace(pipeline=fixed), None)
+    baseline_io._last.clear()
+    fixed('hello', max_new_tokens=2, do_sample=False, return_full_text=False)
+    assert baseline_io._last['backend_generation']['effective_max_new_tokens'] == 2
+    assert 1 <= baseline_io._last['generated_tokens'] <= 2
+    assert baseline_io._last['input_tokens'] == 1
+    report = {'scope': 'offline tiny-model CPU compatibility test, not assignment evaluation', 'transformers': transformers_version, 'torch': torch.__version__, 'failure_reproduced': caught, 'explicit_pt_pipeline_generates': True, 'actual_backend_token_observer_verified': True, 'qwen_on_P100_verified': False}
     out = Path(__file__).resolve().parent.parent / 'qa/revision_compatibility_validation.json'
     out.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report), flush=True)
