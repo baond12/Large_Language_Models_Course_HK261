@@ -65,6 +65,6 @@ Mỗi kết luận trong report phải truy về câu hỏi, câu trả lời, �
 
 - Khung Word: 10 trang đã kiểm tra bằng ảnh từ Word; mục lục tự động có nội dung và số trang. Không nhập số metric cũ, không xuất báo cáo PDF và không tạo ZIP cuối.
 - Source notebook: hai nhánh có diff từng cell; kiểm tra AST tám hàm gốc và cú pháp tương thích Python 3.10 đạt.
-- Bốn kiểm thử CPU đạt: lời gọi/prompt/raw response giữ nguyên; đúng cùng 100 ID, câu hỏi và đáp án từ RES; từ chối đường dẫn ZIP vượt thư mục; giữ đáp án rỗng trong mẫu số và phân biệt công thức PDF với Counter.
+- Sáu kiểm thử CPU đạt: lời gọi/prompt/raw response giữ nguyên; đúng cùng 100 ID, câu hỏi và đáp án từ RES; từ chối đường dẫn ZIP vượt thư mục; giữ đáp án rỗng trong mẫu số và phân biệt công thức PDF với Counter; pilot 1 câu không được nhận là đánh giá chính; chỉ mục bị sửa không được dùng lại.
 - Hash ba đầu vào gốc đã đối chiếu. Notebook gốc không bị sửa.
 - Chưa xác nhận môi trường Docker mới, chạy GPU 100 câu, nhánh cosine thực tế hoặc lần chạy lại mô hình độc lập. Các kiểm tra trên chỉ nghiệm thu bước chuẩn bị, không chứng nhận chất lượng câu trả lời hay mức cải thiện.

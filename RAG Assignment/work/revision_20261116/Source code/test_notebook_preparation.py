@@ -26,6 +26,40 @@ def load_functions(source, namespace):
 
 
 class NotebookPreparationTests(unittest.TestCase):
+    def test_one_question_pilot_is_separate_from_full_evaluation(self):
+        with tempfile.TemporaryDirectory(prefix='pilot_', dir=ROOT.parent/'qa') as tmp:
+            run = Path(tmp)
+            with patch.object(io, 'RUN', run), patch.object(io, 'RES_CSV', run/'evaluation.csv'), patch.object(io, 'N', 1), patch.object(io, 'IS_PILOT', True), patch.object(io, 'EVALUATION_IDS', io.CONTRACT['planned_evaluation_ids'][:1]):
+                records = io.prepare_evaluation()
+                self.assertEqual(len(records), 1)
+                self.assertEqual(records[0]['question_id'], io.CONTRACT['planned_evaluation_ids'][0])
+                scores = {'Cosine_Similarity': 0., 'Jaccard_Similarity': 0., 'Token_Overlap': 0., 'BLEU_Score': 0., 'ROUGE_L': 0.}
+                item = {'id': records[0]['question_id'], 'answer': '', 'reference': 'a', 'metrics_notebook': scores, 'error': None, 'returned_text_starts_with_prompt': False}
+                (run/'predictions.jsonl').write_text(json.dumps(item)+'\n', encoding='utf-8')
+                with redirect_stdout(StringIO()):
+                    io.finish([None], scores, lambda s:s)
+                summary = json.loads((run/'summary.json').read_text(encoding='utf-8'))
+                self.assertTrue(summary['limited_run'])
+                self.assertFalse(summary['eligible_for_final_evaluation'])
+
+    def test_reusing_modified_index_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='reuse_', dir=ROOT.parent/'qa') as tmp:
+            root = Path(tmp); old = root/'old'; new = root/'new'
+            old.mkdir(); new.mkdir(); (old/'faiss_db').mkdir()
+            env = {'source_sha256': {'input':'same'}, 'model_revisions': {'embedding':'same'}, 'distance_branch':'notebook', 'index_logic_sha256':'same', 'packages':{}}
+            for folder in [old,new]:
+                io.write_json(folder/'environment.json', env)
+            for name in ['index.faiss','index.pkl']:
+                (old/'faiss_db'/name).write_bytes(b'original index fixture')
+            io.write_json(old/'index_info.json', {'index_files_sha256':{name:io.sha(old/'faiss_db'/name) for name in ['index.faiss','index.pkl']}})
+            io.write_json(old/'document_order.json', ['a.txt'])
+            with patch.object(io, 'RUN', new), patch.object(io, 'INDEX_DIR', new/'faiss_db'), patch.dict(io.os.environ, {'BASELINE_REUSE_INDEX_FROM':str(old)}), redirect_stdout(StringIO()):
+                io.reuse_index()
+                self.assertEqual(io.INDEX_DIR, old/'faiss_db')
+                (old/'faiss_db/index.pkl').write_bytes(b'modified')
+                with self.assertRaisesRegex(ValueError, 'modified index file'):
+                    io.reuse_index()
+
     def test_original_prompt_generate_call_and_raw_return_are_preserved(self):
         original = json.loads(ORIGINAL.read_text(encoding='utf-8'))
         for mode in ['notebook', 'cosine']:

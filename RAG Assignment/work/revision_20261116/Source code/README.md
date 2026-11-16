@@ -40,6 +40,10 @@ Lệnh này chưa xây index, tải mô hình hoặc đánh giá 100 câu. Nó b
 
 ## Thực thi sau khi môi trường đã qua kiểm tra
 
+Theo yêu cầu chạy thử trước: thêm `--limit 1` để thực thi một câu bằng notebook. Lần đầu vẫn phải xây FAISS trên toàn bộ corpus để giữ đúng truy hồi baseline. Pilot được đánh dấu limited_run và không đáp ứng yêu cầu đánh giá tối thiểu 100 cặp.
+
+Sau khi kiểm tra output và log của một câu, chạy cùng nhánh với tên lần chạy mới, bỏ `--limit`, thêm `--reuse-index-from <tên-lần-pilot>`. Công cụ đối chiếu dữ liệu, revision, logic tạo index, thư viện truy hồi và hash hai tệp FAISS trước khi dùng lại. Chỉ mục là chỉ mục do chính notebook vừa tạo, không phải chỉ mục từ pipeline tự viết trước đây. Luồng sinh câu trả lời và các hàm metric vẫn giữ nguyên. Runner hiển thị stdout và tiến độ khi notebook đang chạy.
+
 Các lệnh dưới là hướng dẫn chuẩn bị cho bước sau, chưa được xác nhận thực chạy GPU. Dùng tên lần chạy mới để bảo toàn log cũ.
 
 ```bash

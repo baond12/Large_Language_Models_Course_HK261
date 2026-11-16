@@ -2,6 +2,8 @@
 
 ## Thứ tự thực hiện
 
+Điều chỉnh theo phản hồi mới: chạy thử 1 câu bằng notebook trước, đọc prompt/context/raw response và lỗi thực tế; sau khi đường chạy đạt thì đánh giá đủ 100 câu. Dùng lại chính chỉ mục notebook của lần thử nếu kiểm tra dữ liệu, cấu hình và hash đạt, không xây lại FAISS chỉ vì tăng số câu. Pilot không phải kết quả đánh giá chính.
+
 1. Dựng khung báo cáo Word theo bố cục nghiên cứu đã thống nhất; chuẩn bị bảng đối chiếu yêu cầu và QA/QC.
 2. Chuẩn bị bản chạy Docker từ notebook của giảng viên. Giữ nguyên notebook được cấp, ghi rõ từng thay đổi trong bản chạy, kiểm tra khác biệt trước khi thực nghiệm.
 3. Người học chạy baseline trên P100 trong Docker và gửi log, notebook đã thực thi cùng kết quả. Xác nhận đủ ít nhất 100 cặp, không bỏ các câu gặp lỗi. Nếu lỗi, lưu traceback trước khi sửa.

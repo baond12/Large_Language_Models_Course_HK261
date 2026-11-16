@@ -55,39 +55,157 @@
 +print(f"Fixed evaluation pairs: {len(df)}")
 --- original/cell_3
 +++ notebook/cell_3
-@@ -6,15 +6,15 @@
- from langchain_community.embeddings import HuggingFaceEmbeddings
+@@ -1,79 +1,83 @@
+-import os
+-from tqdm import tqdm
+-from langchain_text_splitters import RecursiveCharacterTextSplitter
+-from langchain_community.document_loaders import TextLoader
+-from langchain_community.vectorstores import FAISS
+-from langchain_community.embeddings import HuggingFaceEmbeddings
++if os.environ.get("BASELINE_REUSE_INDEX_FROM"):
++    baseline_io.reuse_index()
++else:
++    import os
++    from tqdm import tqdm
++    from langchain_text_splitters import RecursiveCharacterTextSplitter
++    from langchain_community.document_loaders import TextLoader
++    from langchain_community.vectorstores import FAISS
++    from langchain_community.embeddings import HuggingFaceEmbeddings
  
- # === Configuration ===
+-# === Configuration ===
 -DOCUMENTS_PATH = "/content/export_1"
-+DOCUMENTS_PATH = str(baseline_io.CORPUS_ROOT)
- EMBEDDING_MODEL = "keepitreal/vietnamese-sbert"
- BATCH_SIZE = 1024
+-EMBEDDING_MODEL = "keepitreal/vietnamese-sbert"
+-BATCH_SIZE = 1024
 -OUTPUT_DIR = "faiss_db"
-+OUTPUT_DIR = str(baseline_io.INDEX_DIR)
++    # === Configuration ===
++    DOCUMENTS_PATH = str(baseline_io.CORPUS_ROOT)
++    EMBEDDING_MODEL = "keepitreal/vietnamese-sbert"
++    BATCH_SIZE = 1024
++    OUTPUT_DIR = str(baseline_io.INDEX_DIR)
  
- # === Load text documents ===
- def load_text_documents(path):
-   documents = []
+-# === Load text documents ===
+-def load_text_documents(path):
+-  documents = []
 -  for filename in os.listdir(path):
-+  for filename in baseline_io.document_filenames(path):
-       if filename.endswith(".txt"):
-           file_path = os.path.join(path, filename)
-           loader = TextLoader(file_path, encoding='utf-8')
-@@ -52,7 +52,7 @@
- print(f"Loading embedding model: {EMBEDDING_MODEL}")
- embeddings = HuggingFaceEmbeddings(
-     model_name=EMBEDDING_MODEL,
--    model_kwargs={"device": "cuda"}
-+    model_kwargs={"device": "cuda", "revision": baseline_io.EMBEDDING_REVISION}
- )
+-      if filename.endswith(".txt"):
+-          file_path = os.path.join(path, filename)
+-          loader = TextLoader(file_path, encoding='utf-8')
+-          raw_docs = loader.load()
+-          for doc in raw_docs:
+-              # Normalize content
+-              content = doc.page_content.replace("\n", " ").lower().strip()
+-              doc.page_content = content
+-              documents.append(doc)
+-  return documents
++    # === Load text documents ===
++    def load_text_documents(path):
++      documents = []
++      for filename in baseline_io.document_filenames(path):
++          if filename.endswith(".txt"):
++              file_path = os.path.join(path, filename)
++              loader = TextLoader(file_path, encoding='utf-8')
++              raw_docs = loader.load()
++              for doc in raw_docs:
++                  # Normalize content
++                  content = doc.page_content.replace("\n", " ").lower().strip()
++                  doc.page_content = content
++                  documents.append(doc)
++      return documents
  
- # === Build FAISS vectorstore ===
-@@ -77,3 +77,4 @@
- os.makedirs(OUTPUT_DIR, exist_ok=True)
- vectorstore.save_local(OUTPUT_DIR)
- print(f"FAISS vectorstore successfully saved to '{OUTPUT_DIR}'")
-+baseline_io.record_index(vectorstore, len(raw_documents), len(texts))
+-print("Loading text documents...")
+-raw_documents = load_text_documents(DOCUMENTS_PATH)
+-print(f"Total documents found: {len(raw_documents)}")
++    print("Loading text documents...")
++    raw_documents = load_text_documents(DOCUMENTS_PATH)
++    print(f"Total documents found: {len(raw_documents)}")
+ 
+-subset_idx = len(raw_documents)
+-raw_documents = raw_documents[:subset_idx]
+-print(f"Documents selected for embedding: {len(raw_documents)}")
++    subset_idx = len(raw_documents)
++    raw_documents = raw_documents[:subset_idx]
++    print(f"Documents selected for embedding: {len(raw_documents)}")
+ 
+-# === Split documents into smaller chunks ===
+-text_splitter = RecursiveCharacterTextSplitter(
+-    chunk_size=2000,
+-    chunk_overlap=50,
+-    length_function=len
+-)
++    # === Split documents into smaller chunks ===
++    text_splitter = RecursiveCharacterTextSplitter(
++        chunk_size=2000,
++        chunk_overlap=50,
++        length_function=len
++    )
+ 
+-texts = []
+-for doc in tqdm(raw_documents, desc="Splitting documents into chunks"):
+-    chunks = text_splitter.split_documents([doc])
+-    texts.extend(chunks)
++    texts = []
++    for doc in tqdm(raw_documents, desc="Splitting documents into chunks"):
++        chunks = text_splitter.split_documents([doc])
++        texts.extend(chunks)
+ 
+-print(f"Total chunks created: {len(texts)}")
++    print(f"Total chunks created: {len(texts)}")
+ 
+-# === Initialize embeddings ===
+-print(f"Loading embedding model: {EMBEDDING_MODEL}")
+-embeddings = HuggingFaceEmbeddings(
+-    model_name=EMBEDDING_MODEL,
+-    model_kwargs={"device": "cuda"}
+-)
++    # === Initialize embeddings ===
++    print(f"Loading embedding model: {EMBEDDING_MODEL}")
++    embeddings = HuggingFaceEmbeddings(
++        model_name=EMBEDDING_MODEL,
++        model_kwargs={"device": "cuda", "revision": baseline_io.EMBEDDING_REVISION}
++    )
+ 
+-# === Build FAISS vectorstore ===
+-vectorstore = None
++    # === Build FAISS vectorstore ===
++    vectorstore = None
+ 
+-for i in tqdm(range(0, len(texts), BATCH_SIZE), desc="Embedding and adding to FAISS"):
+-    batch = texts[i:i + BATCH_SIZE]
+-    batch_embeddings = embeddings.embed_documents([t.page_content for t in batch])
++    for i in tqdm(range(0, len(texts), BATCH_SIZE), desc="Embedding and adding to FAISS"):
++        batch = texts[i:i + BATCH_SIZE]
++        batch_embeddings = embeddings.embed_documents([t.page_content for t in batch])
+ 
+-    if vectorstore is None:
+-        vectorstore = FAISS.from_texts(
+-            [t.page_content for t in batch],
+-            embeddings
+-        )
+-    else:
+-        vectorstore.add_texts(
+-            [t.page_content for t in batch],
+-            embedding=batch_embeddings
+-        )
++        if vectorstore is None:
++            vectorstore = FAISS.from_texts(
++                [t.page_content for t in batch],
++                embeddings
++            )
++        else:
++            vectorstore.add_texts(
++                [t.page_content for t in batch],
++                embedding=batch_embeddings
++            )
+ 
+-# === Save FAISS index ===
+-os.makedirs(OUTPUT_DIR, exist_ok=True)
+-vectorstore.save_local(OUTPUT_DIR)
+-print(f"FAISS vectorstore successfully saved to '{OUTPUT_DIR}'")
++    # === Save FAISS index ===
++    os.makedirs(OUTPUT_DIR, exist_ok=True)
++    vectorstore.save_local(OUTPUT_DIR)
++    print(f"FAISS vectorstore successfully saved to '{OUTPUT_DIR}'")
++    baseline_io.record_index(vectorstore, len(raw_documents), len(texts))
 --- original/cell_4
 +++ notebook/cell_4
 @@ -4,13 +4,13 @@
@@ -121,7 +239,7 @@
 -df = df.head(30)
 +df = pd.read_csv(baseline_io.RES_CSV)
 +df = df.head(baseline_io.N)
-+assert len(df) == baseline_io.N and len(df) >= 100
++assert len(df) == baseline_io.N and (len(df) >= 100 or baseline_io.IS_PILOT)
  print(f"Total number of questions: {len(df)}")
  
  # # ==================== LOAD FAISS + EMBEDDINGS ====================

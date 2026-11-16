@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from datetime import datetime, timezone
 import importlib.metadata
 import importlib.util
@@ -78,16 +79,30 @@ def execute(args):
     os.environ['BASELINE_RUN_DIR'] = str(run_dir)
     os.environ['BASELINE_DISTANCE'] = args.mode
     os.environ['BASELINE_EXPECTED_PYTHON'] = sys.executable
+    full_size = len(json.loads((HERE.parent / 'experiment_contract.json').read_text(encoding='utf-8'))['planned_evaluation_ids'])
+    limit = args.limit if args.limit is not None else full_size
+    if not 1 <= limit <= full_size:
+        raise SystemExit(f'--limit must be between 1 and {full_size}')
+    os.environ['BASELINE_QUESTION_LIMIT'] = str(limit)
+    if args.reuse_index_from:
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', args.reuse_index_from):
+            raise SystemExit('--reuse-index-from must be a previous run name')
+        os.environ['BASELINE_REUSE_INDEX_FROM'] = str(WORK / 'runs/notebook_baseline_20261116' / args.reuse_index_from)
+    else:
+        os.environ.pop('BASELINE_REUSE_INDEX_FROM', None)
     nb = nbformat.read(notebook_path, as_version=4)
+    os.environ['BASELINE_INDEX_LOGIC_SHA256'] = hashlib.sha256(nb.cells[3].source.encode('utf-8')).hexdigest()
     events = []
     def completed(cell, cell_index, execute_reply):
         events.append({'cell': cell_index, 'status': execute_reply['content'].get('status'), 'utc': datetime.now(timezone.utc).isoformat()})
         nbformat.write(nb, artifact / 'executed.ipynb')
         print(f'CELL {cell_index}: {events[-1]["status"]}', flush=True)
-        for output in cell.get('outputs', []):
-            if output.get('output_type') == 'stream':
-                print(output.get('text', ''), end='', flush=True)
-    client = NotebookClient(nb, timeout=None, kernel_name='python3', allow_errors=False, resources={'metadata': {'path': str(WORK)}}, on_cell_executed=completed)
+    class StreamingNotebookClient(NotebookClient):
+        def process_message(self, msg, cell, cell_index):
+            if msg['header']['msg_type'] == 'stream':
+                print(msg['content'].get('text', ''), end='', flush=True)
+            return super().process_message(msg, cell, cell_index)
+    client = StreamingNotebookClient(nb, timeout=None, kernel_name='python3', allow_errors=False, resources={'metadata': {'path': str(WORK)}}, on_cell_executed=completed)
     success = False
     try:
         client.execute()
@@ -119,6 +134,8 @@ def main():
     actions.add_argument('--execute', action='store_true')
     parser.add_argument('--mode', choices=['notebook', 'cosine'], default='notebook')
     parser.add_argument('--run-name')
+    parser.add_argument('--limit', type=int, help='Pilot question count; omit for the full fixed set of at least 100')
+    parser.add_argument('--reuse-index-from', help='Previous run name whose instructor-notebook index will be verified and reused')
     args = parser.parse_args()
     if args.check:
         return check()

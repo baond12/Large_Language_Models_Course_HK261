@@ -59,7 +59,7 @@ print(f"Fixed evaluation pairs: {len(df)}")
     updated[4] = replace_once(updated[4], 'model_kwargs={"device": "cpu"}', 'model_kwargs={"device": "cpu", "revision": baseline_io.EMBEDDING_REVISION}')
     updated[5] = replace_once(sources[5], 'from langchain_google_genai import ChatGoogleGenerativeAI\n', '# Unused Google API import omitted; this notebook does not call an external LLM API.\n')
     updated[5] = replace_once(updated[5], 'df = pd.read_csv("res.csv")', 'df = pd.read_csv(baseline_io.RES_CSV)')
-    updated[5] = replace_once(updated[5], 'df = df.head(30)', 'df = df.head(baseline_io.N)\nassert len(df) == baseline_io.N and len(df) >= 100')
+    updated[5] = replace_once(updated[5], 'df = df.head(30)', 'df = df.head(baseline_io.N)\nassert len(df) == baseline_io.N and (len(df) >= 100 or baseline_io.IS_PILOT)')
     updated[5] = replace_once(updated[5], '    "faiss_db",', '    str(baseline_io.INDEX_DIR),')
     updated[5] = replace_once(updated[5], 'model_kwargs={"temperature": 0, "max_length": 1024}', 'model_kwargs={"temperature": 0, "max_length": 1024, "revision": baseline_io.LLM_REVISION}')
     updated[5] = replace_once(updated[5], '# ==================== HELPER FUNCTIONS ====================', 'baseline_io.record_model(llm, embeddings)\n\n# ==================== HELPER FUNCTIONS ====================')
@@ -73,6 +73,9 @@ print(f"Fixed evaluation pairs: {len(df)}")
         updated[3] = replace_once(updated[3], '            embeddings\n        )', '            embeddings,\n            normalize_L2=True,\n            distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT\n        )')
         for i in [4, 5]:
             updated[i] = replace_once(updated[i], '    allow_dangerous_deserialization=True\n)', '    allow_dangerous_deserialization=True,\n    normalize_L2=True,\n    distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT\n)')
+    # Skip only index construction when an index from this same notebook run is verified.
+    prefix = 'from langchain_community.vectorstores.utils import DistanceStrategy\n' if mode == 'cosine' else ''
+    updated[3] = prefix + 'if os.environ.get("BASELINE_REUSE_INDEX_FROM"):\n    baseline_io.reuse_index()\nelse:\n' + ''.join('    ' + line if line.strip() else line for line in updated[3].splitlines(keepends=True))
     for i, cell in enumerate(nb['cells']):
         cell['source'] = updated[i].splitlines(keepends=True)
         cell['execution_count'] = None

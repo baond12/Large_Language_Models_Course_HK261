@@ -28,7 +28,11 @@ INDEX_DIR = RUN / 'faiss_db'
 LOCK = json.loads((Path(__file__).resolve().parent / 'models.lock.json').read_text(encoding='utf-8'))
 EMBEDDING_REVISION = LOCK['keepitreal/vietnamese-sbert']['revision']
 LLM_REVISION = LOCK['Qwen/Qwen1.5-1.8B']['revision']
-N = len(CONTRACT['planned_evaluation_ids'])
+N = int(os.environ.get('BASELINE_QUESTION_LIMIT', len(CONTRACT['planned_evaluation_ids'])))
+if not 1 <= N <= len(CONTRACT['planned_evaluation_ids']):
+    raise ValueError('Question limit must be positive and within the frozen evaluation selection')
+EVALUATION_IDS = CONTRACT['planned_evaluation_ids'][:N]
+IS_PILOT = N < 100
 _last = {}
 _started = time.perf_counter()
 
@@ -55,8 +59,8 @@ def begin():
         raise RuntimeError('Set CUDA_VISIBLE_DEVICES=3 before starting this notebook kernel')
     if not torch.cuda.is_available():
         raise RuntimeError('CUDA is unavailable; this run requires the user-operated GPU server')
-    if N < 100 or len(set(CONTRACT['planned_evaluation_ids'])) != N:
-        raise ValueError('Evaluation selection must contain at least 100 unique IDs')
+    if len(CONTRACT['planned_evaluation_ids']) < 100 or len(set(CONTRACT['planned_evaluation_ids'])) != len(CONTRACT['planned_evaluation_ids']):
+        raise ValueError('The full evaluation selection must contain at least 100 unique IDs')
     RUN.mkdir(parents=True, exist_ok=False)
     random.seed(261); np.random.seed(261); torch.manual_seed(261); torch.cuda.manual_seed_all(261)
     packages = ['torch', 'transformers', 'sentence-transformers', 'langchain-community', 'langchain-core', 'langchain-huggingface', 'langchain-text-splitters', 'faiss-cpu', 'numpy', 'pandas', 'openpyxl', 'scikit-learn', 'nbclient', 'nbformat', 'ipykernel']
@@ -72,7 +76,7 @@ def begin():
     expected_inputs = {'Baseline.ipynb': CONTRACT['baseline_original_sha256'], 'RES.xlsx': 'd45e399006360bec31f9a73d7dc306263b9b2f580b4daab7aa2d017115d32750', 'Dataset.zip': 'd69d5a7229cc2a3b81e8dfe3c0d1feb295994daa58a982feac88244dc8244bca'}
     if sources != expected_inputs:
         raise ValueError('Supplied source input hashes differ from the reviewed original files')
-    write_json(RUN / 'environment.json', {'python': sys.version, 'python_executable': sys.executable, 'packages': versions, 'source_sha256': sources, 'seed': 261, 'CUDA_VISIBLE_DEVICES': os.environ.get('CUDA_VISIBLE_DEVICES'), 'logical_device': 0, 'gpu': torch.cuda.get_device_name(0), 'distance_branch': MODE, 'evaluation_count': N, 'model_revisions': LOCK, 'baseline_logic': 'instructor notebook cells with documented operational edits'})
+    write_json(RUN / 'environment.json', {'python': sys.version, 'python_executable': sys.executable, 'packages': versions, 'source_sha256': sources, 'seed': 261, 'CUDA_VISIBLE_DEVICES': os.environ.get('CUDA_VISIBLE_DEVICES'), 'logical_device': 0, 'gpu': torch.cuda.get_device_name(0), 'distance_branch': MODE, 'evaluation_count': N, 'limited_run': IS_PILOT, 'model_revisions': LOCK, 'index_logic_sha256': os.environ.get('BASELINE_INDEX_LOGIC_SHA256'), 'baseline_logic': 'instructor notebook cells with documented operational edits'})
     print(json.dumps({'run': str(RUN), 'questions': N, 'gpu': torch.cuda.get_device_name(0), 'physical_gpu_selection': '3', 'distance_branch': MODE}))
 
 
@@ -94,7 +98,7 @@ def prepare_evaluation():
         if uid in by_id:
             raise ValueError(f'Duplicate question identity: {uid}')
         by_id[uid] = {'question_id': uid, 'excel_row': int(i)+2, 'Câu Hỏi': question, 'Trả lời': answer}
-    selected = [by_id[uid] for uid in CONTRACT['planned_evaluation_ids']]
+    selected = [by_id[uid] for uid in EVALUATION_IDS]
     pd.DataFrame(selected).to_csv(RES_CSV, index=False, encoding='utf-8')
     write_json(RUN / 'evaluation_pairs.json', selected)
     return selected
@@ -163,8 +167,36 @@ def record_index(store, documents=None, chunks=None):
     info = {'index_type': type(index).__name__, 'index_metric_type': index.metric_type, 'faiss_metric_l2': faiss.METRIC_L2, 'faiss_metric_inner_product': faiss.METRIC_INNER_PRODUCT, 'distance_strategy': str(store.distance_strategy), 'normalize_L2': bool(getattr(store, '_normalize_L2', False)), 'vectors': index.ntotal, 'dimension': index.d, 'sample_vector_norms': np.linalg.norm(samples, axis=1).tolist(), 'documents': documents, 'chunks': chunks}
     if MODE == 'cosine' and (index.metric_type != faiss.METRIC_INNER_PRODUCT or not info['normalize_L2']):
         raise ValueError('Cosine branch was not built with normalized vectors and inner-product search')
+    info['index_files_sha256'] = {name: sha(INDEX_DIR / name) for name in ['index.faiss', 'index.pkl']}
     write_json(RUN / 'index_info.json', info)
     print(json.dumps(info))
+
+
+def reuse_index():
+    """Reuse only an index produced by this instructor-notebook workflow."""
+    global INDEX_DIR
+    source = Path(os.environ['BASELINE_REUSE_INDEX_FROM']).resolve()
+    old = json.loads((source / 'environment.json').read_text(encoding='utf-8'))
+    current = json.loads((RUN / 'environment.json').read_text(encoding='utf-8'))
+    for key in ['source_sha256', 'model_revisions', 'distance_branch', 'index_logic_sha256']:
+        if old.get(key) != current.get(key) or old.get(key) is None:
+            raise ValueError(f'Cannot reuse index: incompatible {key}')
+    for package in ['torch', 'transformers', 'sentence-transformers', 'langchain-community', 'langchain-core', 'langchain-text-splitters', 'faiss-cpu', 'numpy']:
+        if old.get('packages', {}).get(package) != current.get('packages', {}).get(package):
+            raise ValueError(f'Cannot reuse index with changed dependency: {package}')
+    info = json.loads((source / 'index_info.json').read_text(encoding='utf-8'))
+    source_index = Path(info.get('reused_index_dir', source / 'faiss_db'))
+    hashes = info.get('index_files_sha256', {})
+    if set(hashes) != {'index.faiss', 'index.pkl'}:
+        raise ValueError('Cannot reuse index without recorded index-file hashes')
+    for name, expected in hashes.items():
+        if sha(source_index / name) != expected:
+            raise ValueError(f'Cannot reuse modified index file: {name}')
+    INDEX_DIR = source_index
+    info = dict(info, reused_from=str(source), reused_index_dir=str(source_index))
+    write_json(RUN / 'index_info.json', info)
+    write_json(RUN / 'document_order.json', json.loads((source / 'document_order.json').read_text(encoding='utf-8')))
+    print(f'Reusing verified notebook index: {INDEX_DIR}', flush=True)
 
 
 def record_model(llm, embeddings):
@@ -200,7 +232,7 @@ def record_result(idx, row, response, metrics):
 def finish(results_df, mean_metrics, normalize_text):
     import math
     records = [json.loads(line) for line in (RUN / 'predictions.jsonl').read_text(encoding='utf-8').splitlines()]
-    if [r['id'] for r in records] != CONTRACT['planned_evaluation_ids'] or len(results_df) != N:
+    if [r['id'] for r in records] != EVALUATION_IDS or len(results_df) != N:
         raise ValueError('Output IDs/order/count do not match the frozen evaluation selection')
     scores = []
     for record in records:
@@ -211,6 +243,6 @@ def finish(results_df, mean_metrics, normalize_text):
         scores.append({'id': record['id'], 'Cosine_Similarity': record['metrics_notebook']['Cosine_Similarity'], 'Jaccard_Similarity': record['metrics_notebook']['Jaccard_Similarity'], 'Token_Overlap_Set_PDF': overlap/len(r) if r else 0, 'BLEU_Set_PDF': bp*overlap/len(p) if p else 0, 'ROUGE_L': record['metrics_notebook']['ROUGE_L']})
     pdf_means = {k: sum(row[k] for row in scores)/N for k in scores[0] if k != 'id'}
     write_json(RUN / 'scores_pdf.json', scores)
-    summary = {'status': 'completed_with_errors' if any(r['error'] for r in records) else 'notebook_execution_complete', 'questions': N, 'errors': sum(bool(r['error']) for r in records), 'empty_answers': sum(not r['answer'].strip() for r in records), 'returned_prompt_prefix_count': sum(r['returned_text_starts_with_prompt'] for r in records), 'metrics_notebook': mean_metrics, 'metrics_pdf': pdf_means, 'distance_branch': MODE, 'elapsed_seconds': time.perf_counter()-_started, 'predictions_sha256': sha(RUN / 'predictions.jsonl'), 'rerun_independently_verified': False}
+    summary = {'status': 'completed_with_errors' if any(r['error'] for r in records) else 'notebook_execution_complete', 'questions': N, 'limited_run': IS_PILOT, 'eligible_for_final_evaluation': N >= 100 and not any(r['error'] for r in records), 'errors': sum(bool(r['error']) for r in records), 'empty_answers': sum(not r['answer'].strip() for r in records), 'returned_prompt_prefix_count': sum(r['returned_text_starts_with_prompt'] for r in records), 'metrics_notebook': mean_metrics, 'metrics_pdf': pdf_means, 'distance_branch': MODE, 'elapsed_seconds': time.perf_counter()-_started, 'predictions_sha256': sha(RUN / 'predictions.jsonl'), 'rerun_independently_verified': False}
     write_json(RUN / 'summary.json', summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
