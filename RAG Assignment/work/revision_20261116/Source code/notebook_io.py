@@ -13,6 +13,7 @@ import time
 import traceback
 import unicodedata
 import zipfile
+from evaluation_selection import resolve_selection
 
 ROOT = Path(__file__).resolve().parent.parent
 WORK = ROOT.parent
@@ -28,11 +29,9 @@ INDEX_DIR = RUN / 'faiss_db'
 LOCK = json.loads((Path(__file__).resolve().parent / 'models.lock.json').read_text(encoding='utf-8'))
 EMBEDDING_REVISION = LOCK['keepitreal/vietnamese-sbert']['revision']
 LLM_REVISION = LOCK['Qwen/Qwen1.5-1.8B']['revision']
-N = int(os.environ.get('BASELINE_QUESTION_LIMIT', len(CONTRACT['planned_evaluation_ids'])))
-if not 1 <= N <= len(CONTRACT['planned_evaluation_ids']):
-    raise ValueError('Question limit must be positive and within the frozen evaluation selection')
-EVALUATION_IDS = CONTRACT['planned_evaluation_ids'][:N]
-IS_PILOT = N < 100
+SELECTION_NAME = os.environ.get('BASELINE_EVALUATION_SET', 'fixed-100')
+SELECTION_IDS, EVALUATION_IDS, IS_PILOT = resolve_selection(SELECTION_NAME, os.environ.get('BASELINE_QUESTION_LIMIT'))
+N = len(EVALUATION_IDS)
 _last = {}
 _started = time.perf_counter()
 
@@ -77,6 +76,9 @@ def begin():
     if sources != expected_inputs:
         raise ValueError('Supplied source input hashes differ from the reviewed original files')
     write_json(RUN / 'environment.json', {'python': sys.version, 'python_executable': sys.executable, 'packages': versions, 'source_sha256': sources, 'seed': 261, 'CUDA_VISIBLE_DEVICES': os.environ.get('CUDA_VISIBLE_DEVICES'), 'logical_device': 0, 'gpu': torch.cuda.get_device_name(0), 'distance_branch': MODE, 'evaluation_count': N, 'limited_run': IS_PILOT, 'model_revisions': LOCK, 'index_logic_sha256': os.environ.get('BASELINE_INDEX_LOGIC_SHA256'), 'baseline_logic': 'instructor notebook cells with documented operational edits'})
+    environment = json.loads((RUN / 'environment.json').read_text(encoding='utf-8'))
+    environment.update({'evaluation_set': SELECTION_NAME, 'expected_selection_count': len(SELECTION_IDS)})
+    write_json(RUN / 'environment.json', environment)
     print(json.dumps({'run': str(RUN), 'questions': N, 'gpu': torch.cuda.get_device_name(0), 'physical_gpu_selection': '3', 'distance_branch': MODE}))
 
 
@@ -263,6 +265,6 @@ def finish(results_df, mean_metrics, normalize_text):
     write_json(RUN / 'scores_pdf.json', scores)
     prompt_count = sum(r['returned_text_starts_with_prompt'] for r in records)
     contract_violations = sum(not r['error'] and (r.get('backend_generation') is None or r['backend_generation'].get('effective_max_new_tokens') != 256 or r.get('generated_tokens') is None or r['generated_tokens'] > 256) for r in records)
-    summary = {'status': 'completed_with_errors' if any(r['error'] for r in records) else 'notebook_execution_complete', 'questions': N, 'limited_run': IS_PILOT, 'eligible_for_final_evaluation': N >= 100 and not any(r['error'] for r in records) and prompt_count == 0 and contract_violations == 0, 'errors': sum(bool(r['error']) for r in records), 'empty_answers': sum(not r['answer'].strip() for r in records), 'returned_prompt_prefix_count': prompt_count, 'generation_contract_violations': contract_violations, 'max_observed_generated_tokens': max((r['generated_tokens'] for r in records if isinstance(r.get('generated_tokens'), int)), default=None), 'metrics_notebook': mean_metrics, 'metrics_pdf': pdf_means, 'distance_branch': MODE, 'elapsed_seconds': time.perf_counter()-_started, 'predictions_sha256': sha(RUN / 'predictions.jsonl'), 'rerun_independently_verified': False}
+    summary = {'status': 'completed_with_errors' if any(r['error'] for r in records) else 'notebook_execution_complete', 'questions': N, 'evaluation_set': SELECTION_NAME, 'expected_selection_count': len(SELECTION_IDS), 'limited_run': IS_PILOT, 'eligible_for_final_evaluation': not IS_PILOT and N >= 100 and not any(r['error'] for r in records) and prompt_count == 0 and contract_violations == 0, 'errors': sum(bool(r['error']) for r in records), 'empty_answers': sum(not r['answer'].strip() for r in records), 'returned_prompt_prefix_count': prompt_count, 'generation_contract_violations': contract_violations, 'max_observed_generated_tokens': max((r['generated_tokens'] for r in records if isinstance(r.get('generated_tokens'), int)), default=None), 'metrics_notebook': mean_metrics, 'metrics_pdf': pdf_means, 'distance_branch': MODE, 'elapsed_seconds': time.perf_counter()-_started, 'predictions_sha256': sha(RUN / 'predictions.jsonl'), 'rerun_independently_verified': False}
     write_json(RUN / 'summary.json', summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))

@@ -1,0 +1,13 @@
+{
+  "scope": "local full-RES selection and source preparation only",
+  "count": 2745,
+  "source_res_sha256": "d45e399006360bec31f9a73d7dc306263b9b2f580b4daab7aa2d017115d32750",
+  "ids_sha256": "e284c99581acedeaf5104f29989355529622f8b23b999e7406a41eba2d51faf1",
+  "all_ids_questions_and_references_checked": true,
+  "excel_order_checked": true,
+  "subset_not_accepted_as_complete_full_RES": true,
+  "instructor_index_cell_unchanged": true,
+  "cpu_unit_tests_passed": 10,
+  "GPU_full_run_started": false,
+  "tmux_server_session_started": false
+}

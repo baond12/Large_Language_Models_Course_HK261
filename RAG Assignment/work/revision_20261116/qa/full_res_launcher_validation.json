@@ -1,0 +1,10 @@
+{
+  "scope": "shell-launcher checks using fake Python in a temporary workspace",
+  "bash_syntax_valid": true,
+  "spaces_in_paths_supported": true,
+  "full_res_selected_without_limit": true,
+  "stdout_and_stderr_logged": true,
+  "failure_exit_code_preserved": true,
+  "tmux_on_server_started": false,
+  "GPU_job_started": false
+}

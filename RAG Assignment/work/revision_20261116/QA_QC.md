@@ -8,6 +8,8 @@ Mỗi kết luận trong report phải truy về câu hỏi, câu trả lời, �
 
 ## Ma trận yêu cầu và bằng chứng
 
+Phạm vi hiện hành là toàn bộ 2.745 cặp RES theo yêu cầu mới, cao hơn mức tối thiểu 100 trong đề. Các phép kiểm tra tập đánh giá phải đối chiếu đúng manifest full-res; 100 ID cũ chỉ dùng cho pilot và lịch sử. Bản báo cáo hoàn chỉnh phải ghi rõ việc full RES bao gồm các câu đã dùng khi phát triển.
+
 | Hạng mục | Điều kiện nghiệm thu | Bằng chứng phải có | Trạng thái đợt mới |
 |---|---|---|---|
 | Problem Statement | Domain pháp luật; input câu hỏi và kho văn bản; output câu trả lời; mục tiêu cải thiện retrieval và tích hợp context | Mục 1 report khớp mục 1 đề; sơ đồ và đường chạy thật | Chưa kiểm tra bản hoàn chỉnh |
@@ -68,3 +70,4 @@ Mỗi kết luận trong report phải truy về câu hỏi, câu trả lời, �
 - Bảy kiểm thử CPU đạt, gồm giữ prompt/truy hồi, áp dụng đúng lời gọi sinh đã kê khai, cùng 100 ID/câu hỏi/đáp án, kiểm tra đường dẫn ZIP, mẫu số và hai cách tính metric, tách pilot, kiểm tra index và từ chối kết quả 100 câu có prompt hoặc giới hạn sinh chưa được xác nhận. Hai kiểm tra riêng dùng method chính thức LangChain 0.3.1 và mô hình nhỏ trên CPU xác nhận chuyển tham số và observer backend.
 - Hash ba đầu vào gốc đã đối chiếu. Notebook gốc không bị sửa.
 - Pilot 02 đã vượt lỗi revision, chạy xong cell 0–5 trên P100 số 3 và dùng lại FAISS. Tuy nhiên returned_prompt_prefix_count=1, nên điểm vừa in không phải điểm riêng câu trả lời. Mã nguồn wrapper 0.3.1 xác nhận lời gọi cũ chưa chuyển max_new_tokens xuống pipeline. Bản sửa yêu cầu completion-only và chuyển đúng 256 token còn chờ pilot 03 trên P100. Chưa có kết quả 100 câu, nhánh cosine hay lần chạy lại độc lập; chưa chứng nhận chất lượng câu trả lời hoặc mức cải thiện.
+- Cập nhật từ các log sau đó: pilot 03 và benchmark 30 câu đã chạy trên P100 với 0 lỗi, 0 prompt-prefix và 0 vi phạm cấu hình sinh; max token quan sát là 256. Đây là bằng chứng kiểm tra vận hành, không phải kết quả toàn bộ 2.745 cặp. Bộ kiểm thử local mới đối chiếu toàn bộ 2.745 ID/câu hỏi/đáp án và thứ tự Excel, từ chối manifest sai hoặc subset bị nhận là full, kiểm tra shell launcher lưu stderr và giữ exit code lỗi. Tmux và full RES chưa được chạy bởi agent trên server; chờ người học thực thi.

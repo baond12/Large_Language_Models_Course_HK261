@@ -8,3 +8,5 @@ qa/*
 !qa/revision_compatibility_validation.json
 !qa/output_contract_validation.json
 !qa/pipeline_source_provenance.json
+!qa/full_res_launcher_validation.json
+!qa/full_res_selection_validation.json

@@ -1,5 +1,5 @@
 {
-  "status": "framework_created_experiments_not_run",
+  "status": "pilot_and_timing_passed_full_RES_pending",
   "minimum_evaluation_pairs": 100,
   "planned_evaluation_ids": [
     "q_a3de7687e2845f64",
@@ -149,15 +149,26 @@
   },
   "quality_status": {
     "framework_layout": "passed_structural_and_all_page_visual_review",
-    "original_notebook_run": "pilot02_completed_one_question_with_prompt_in_scored_response",
+    "original_notebook_run": "pilot03_and_30_question_timing_completed_on_P100_no_runtime_output_contract_errors_in_reported_summaries",
     "new_full_comparison": "not_run",
     "clean_model_rerun": "not_run",
     "final_report": "not_ready",
     "baseline_source_preparation": "CPU_checks_passed_GPU_execution_pending",
     "revision_fix": "P100_pilot02_loaded_Qwen_and_generated_successfully",
-    "output_contract_fix": "official_0_3_1_method_and_tiny_CPU_model_tests_passed_P100_pilot03_pending"
+    "output_contract_fix": "verified_by_P100_pilot03_and_30_question_timing_summaries",
+    "full_RES_run": "not_started"
   },
   "user_review": "required_after_QA_QC_before_final_packaging",
   "final_zip_allowed": false,
-  "submission_allowed": false
+  "submission_allowed": false,
+  "primary_evaluation": {
+    "selection": "full-res",
+    "count": 2745,
+    "manifest": "Source code/full_res_selection.json",
+    "ids_sha256": "e284c99581acedeaf5104f29989355529622f8b23b999e7406a41eba2d51faf1",
+    "order": "original Excel row order, starting after header",
+    "same_pairs_for_all_methods": true,
+    "not_an_unseen_holdout": true
+  },
+  "legacy_fixed_selection_role": "previous fixed-100 IDs retained for pilot, timing and historical reruns only"
 }

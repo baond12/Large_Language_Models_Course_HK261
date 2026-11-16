@@ -66,6 +66,11 @@ def execute(args):
         raise SystemExit('Set CUDA_VISIBLE_DEVICES=3 before launching the Jupyter kernel')
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', args.run_name):
         raise SystemExit('Run name must be a simple new directory name')
+    from evaluation_selection import resolve_selection
+    try:
+        _, selected_ids, _ = resolve_selection(args.evaluation_set, args.limit)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     from nbclient import NotebookClient
     import nbformat
     from prepare_notebooks import build
@@ -79,11 +84,8 @@ def execute(args):
     os.environ['BASELINE_RUN_DIR'] = str(run_dir)
     os.environ['BASELINE_DISTANCE'] = args.mode
     os.environ['BASELINE_EXPECTED_PYTHON'] = sys.executable
-    full_size = len(json.loads((HERE.parent / 'experiment_contract.json').read_text(encoding='utf-8'))['planned_evaluation_ids'])
-    limit = args.limit if args.limit is not None else full_size
-    if not 1 <= limit <= full_size:
-        raise SystemExit(f'--limit must be between 1 and {full_size}')
-    os.environ['BASELINE_QUESTION_LIMIT'] = str(limit)
+    os.environ['BASELINE_EVALUATION_SET'] = args.evaluation_set
+    os.environ['BASELINE_QUESTION_LIMIT'] = str(len(selected_ids))
     if args.reuse_index_from:
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', args.reuse_index_from):
             raise SystemExit('--reuse-index-from must be a previous run name')
@@ -133,8 +135,9 @@ def main():
     actions.add_argument('--check', action='store_true')
     actions.add_argument('--execute', action='store_true')
     parser.add_argument('--mode', choices=['notebook', 'cosine'], default='notebook')
+    parser.add_argument('--evaluation-set', choices=['fixed-100', 'full-res'], default='fixed-100', help='Frozen historical 100 IDs or all 2745 RES pairs in Excel order')
     parser.add_argument('--run-name')
-    parser.add_argument('--limit', type=int, help='Pilot question count; omit for the full fixed set of at least 100')
+    parser.add_argument('--limit', type=int, help='Pilot question count; omit to evaluate the entire selected evaluation set')
     parser.add_argument('--reuse-index-from', help='Previous run name whose instructor-notebook index will be verified and reused')
     args = parser.parse_args()
     if args.check:

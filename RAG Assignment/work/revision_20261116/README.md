@@ -2,11 +2,13 @@
 
 ## Thứ tự thực hiện
 
+Phạm vi đánh giá chính đã đổi theo yêu cầu người học: dùng toàn bộ 2.745 cặp RES, chạy trong tmux trên server, cùng manifest cho baseline và các phương pháp đề xuất. Tập 100 ID cũ giữ cho pilot/timing và truy vết; không nhận là kết quả toàn bộ RES. Hướng dẫn hiện hành: `TMUX_FULL_RES.md`. Chưa khởi chạy hoặc nghiệm thu kết quả 2.745 câu từ workspace này.
+
 Điều chỉnh theo phản hồi mới: chạy thử 1 câu bằng notebook trước, đọc prompt/context/raw response và lỗi thực tế; sau khi đường chạy đạt thì đánh giá đủ 100 câu. Dùng lại chính chỉ mục notebook của lần thử nếu kiểm tra dữ liệu, cấu hình và hash đạt, không xây lại FAISS chỉ vì tăng số câu. Pilot không phải kết quả đánh giá chính.
 
 1. Dựng khung báo cáo Word theo bố cục nghiên cứu đã thống nhất; chuẩn bị bảng đối chiếu yêu cầu và QA/QC.
 2. Chuẩn bị bản chạy Docker từ notebook của giảng viên. Giữ nguyên notebook được cấp, ghi rõ từng thay đổi trong bản chạy, kiểm tra khác biệt trước khi thực nghiệm.
-3. Người học chạy baseline trên P100 trong Docker và gửi log, notebook đã thực thi cùng kết quả. Xác nhận đủ ít nhất 100 cặp, không bỏ các câu gặp lỗi. Nếu lỗi, lưu traceback trước khi sửa.
+3. Người học chạy baseline toàn bộ 2.745 cặp trên P100 trong Docker/tmux và gửi log, notebook đã thực thi cùng kết quả. Xác nhận đúng toàn bộ ID, không bỏ các câu gặp lỗi. Nếu lỗi, lưu traceback trước khi sửa.
 4. Chạy các phương pháp đề xuất trên đúng cùng tập đánh giá và cùng bộ chấm điểm. Việc lựa chọn hay điều chỉnh phương pháp dùng tập phát triển; không điều chỉnh theo điểm của tập đánh giá chính.
 5. Điền kết quả mới vào báo cáo; viết so sánh, phân tích ví dụ, hạn chế và kết luận theo bằng chứng.
 6. QA/QC source, kết quả và báo cáo. Kiểm tra chạy lại thực nghiệm riêng với kiểm tra tính toàn vẹn và chấm lại câu trả lời đã lưu.
@@ -17,7 +19,8 @@
 - Bản Word trong `Manual` là khung trước thực nghiệm, chưa phải báo cáo hoàn chỉnh.
 - Các ô “Chờ kết quả” phải được thay bằng số liệu của đợt chạy notebook giảng viên. Chưa sử dụng các số cũ làm kết quả baseline mới.
 - Các phiên bản bài nộp, ZIP, báo cáo, code và kết quả cũ được giữ nguyên để truy vết. Chúng không phải bản đã được người học duyệt cho đợt này.
-- Pilot 01 đã lưu FAISS 176.506 vector từ 16.440 văn bản, rồi lỗi duplicate revision. Pilot 02 đã chạy hết 1 câu bằng chỉ mục đó trên P100 số 3, nhưng chuỗi chấm điểm chứa prompt và giới hạn sinh chưa được chuyển đúng qua wrapper. Giữ log/điểm cũ để truy vết, không sử dụng chúng làm điểm câu trả lời của report. Bản sửa định dạng đầu ra và chuyển giới hạn 256 token đã qua kiểm thử CPU, chờ pilot 03. Xem `BASELINE_FAILURE_01.md` và `PILOT_02_OUTPUT_QC.md`.
+- Pilot 01 đã lưu FAISS 176.506 vector từ 16.440 văn bản, rồi lỗi duplicate revision. Pilot 02 chạy hết 1 câu bằng chỉ mục đó trên P100 số 3, nhưng chuỗi chấm điểm chứa prompt và giới hạn sinh chưa được chuyển đúng qua wrapper. Giữ log/điểm cũ để truy vết, không sử dụng chúng làm điểm câu trả lời của report. Các bản sửa đã được thử lại ở pilot 03 và benchmark 30 câu như ghi nhận bên dưới. Xem `BASELINE_FAILURE_01.md` và `PILOT_02_OUTPUT_QC.md`.
+- Pilot 03 đã qua kiểm tra vận hành trên P100. Benchmark 30 câu người học gửi tiếp tục có 0 lỗi/0 prompt-prefix/0 vi phạm cấu hình, khoảng 11,12 giây/câu. Thời gian toàn bộ 2.745 câu dự báo khoảng 8 giờ 30 phút; chưa phải kết quả đo full RES. Câu trả lời baseline vẫn có hiện tượng lặp; không nhận điểm similarity là tỷ lệ đúng.
 - Môi trường chạy dự kiến: Docker `baond_llm`, GPU vật lý số 3, `CUDA_VISIBLE_DEVICES=3`; người học tự chạy trên server. Không tạo môi trường Python riêng, không tự nâng cấp toàn bộ thư viện.
 
 ## Quy định về baseline

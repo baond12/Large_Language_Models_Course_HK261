@@ -13,6 +13,7 @@ import zipfile
 
 import notebook_io as io
 from prepare_notebooks import ORIGINAL, ROOT, WORK, build
+from evaluation_selection import load_selection, resolve_selection
 
 
 def definitions(source):
@@ -26,6 +27,50 @@ def load_functions(source, namespace):
 
 
 class NotebookPreparationTests(unittest.TestCase):
+    def test_full_res_selection_matches_all_original_pairs_in_excel_order(self):
+        ids = load_selection('full-res')
+        self.assertEqual(len(ids), 2745)
+        with tempfile.TemporaryDirectory(prefix='full_res_', dir=ROOT.parent/'qa') as tmp:
+            run = Path(tmp)
+            with patch.object(io, 'RUN', run), patch.object(io, 'RES_CSV', run/'evaluation.csv'), patch.object(io, 'EVALUATION_IDS', ids):
+                records = io.prepare_evaluation()
+            self.assertEqual([r['question_id'] for r in records], ids)
+            self.assertEqual([r['excel_row'] for r in records], sorted(r['excel_row'] for r in records))
+            questions = {r['id']:r['question'] for r in map(json.loads, (WORK/'data/questions.jsonl').read_text(encoding='utf-8').splitlines())}
+            labels = {r['id']:r['answer'] for r in map(json.loads, (WORK/'data/labels.jsonl').read_text(encoding='utf-8').splitlines())}
+            self.assertEqual(set(ids), set(questions))
+            for row in records:
+                self.assertEqual(row['Câu Hỏi'], questions[row['question_id']])
+                self.assertEqual(row['Trả lời'], labels[row['question_id']])
+
+    def test_full_res_prefix_is_not_complete_and_invalid_limit_is_rejected(self):
+        ids, prefix, limited = resolve_selection('full-res', 100)
+        self.assertTrue(limited)
+        self.assertEqual(len(prefix), 100)
+        self.assertEqual(len(ids), 2745)
+        with self.assertRaisesRegex(ValueError, '--limit'):
+            resolve_selection('full-res', 2746)
+        self.assertEqual(resolve_selection('fixed-100')[1], io.CONTRACT['planned_evaluation_ids'])
+        with tempfile.TemporaryDirectory(prefix='prefix_', dir=ROOT.parent/'qa') as tmp:
+            run = Path(tmp)
+            metrics = {name:1. for name in ['Cosine_Similarity','Jaccard_Similarity','Token_Overlap','BLEU_Score','ROUGE_L']}
+            records = [{'id':uid,'answer':'a','reference':'a','error':None,'returned_text_starts_with_prompt':False,'backend_generation':{'effective_max_new_tokens':256},'generated_tokens':1,'metrics_notebook':metrics} for uid in prefix]
+            (run/'predictions.jsonl').write_text('\n'.join(json.dumps(r) for r in records)+'\n',encoding='utf-8')
+            with patch.object(io, 'RUN', run), patch.object(io, 'EVALUATION_IDS', prefix), patch.object(io, 'SELECTION_IDS', ids), patch.object(io, 'SELECTION_NAME', 'full-res'), patch.object(io, 'N', 100), patch.object(io, 'IS_PILOT', limited), redirect_stdout(StringIO()):
+                io.finish([None]*100, metrics, lambda s:s)
+            summary = json.loads((run/'summary.json').read_text(encoding='utf-8'))
+            self.assertFalse(summary['eligible_for_final_evaluation'])
+            self.assertEqual(summary['expected_selection_count'], 2745)
+
+    def test_full_res_manifest_tampering_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='manifest_', dir=ROOT.parent/'qa') as tmp:
+            code = Path(tmp)
+            value = json.loads((ROOT/'full_res_selection.json').read_text(encoding='utf-8'))
+            value['count'] -= 1
+            (code/'full_res_selection.json').write_text(json.dumps(value),encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'count or ID digest'):
+                load_selection('full-res', code)
+
     def test_full_evaluation_rejects_prompt_echo_and_unforwarded_limit(self):
         with tempfile.TemporaryDirectory(prefix='output_gate_', dir=ROOT.parent/'qa') as tmp:
             run = Path(tmp)

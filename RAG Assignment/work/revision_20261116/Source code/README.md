@@ -1,8 +1,16 @@
 # Chạy notebook baseline của giảng viên trong Docker
 
+## Đánh giá chính hiện tại trên toàn bộ RES
+
+Theo yêu cầu mới, đánh giá chính dùng cả 2.745 cặp trong bản RES đã cấp. `full_res_selection.json` chứa ID theo thứ tự dòng Excel, số lượng, hash ID và hash workbook. Bộ chọn `--evaluation-set full-res` đọc manifest này; mặc định `fixed-100` chỉ giữ để chạy lại các pilot và đối chứng lịch sử. Không dùng mặc định 100 câu để nhận là đã chạy hết RES.
+
+Chạy từ host tmux bằng Docker theo `../TMUX_FULL_RES.md`. Script `run_full_res.sh` thực thi toàn bộ 2.745 câu bằng chính notebook, dùng lại chỉ mục đã lưu, ghi console log liên tục và truyền exit code lỗi qua tee. Không thay model, prompt, chunking hay metric. Nếu dùng --limit để chạy một phần full-res, limited_run vẫn là true và không được nghiệm thu là kết quả toàn bộ.
+
+Manifest có thể tạo lại bằng `python3 build_full_res_selection.py`; phải dùng đúng workbook đã khóa hash. Các phương pháp so sánh dùng cùng manifest và cùng evaluator. Full RES có các câu đã được xem khi phát triển, nên không gọi kết quả là đánh giá trên một tập chưa từng được xem.
+
 ## Trạng thái và phạm vi
 
-Đây là bản điều chỉnh từ notebook giảng viên. Pilot 01 đã xây/lưu FAISS rồi lỗi nạp LLM; pilot 02 chạy hết một câu trên GPU nhưng phát hiện chuỗi chấm điểm chứa prompt và giới hạn sinh chưa được chuyển đúng qua wrapper. Hai log được giữ nguyên; các điểm pilot 02 không được dùng làm điểm của riêng câu trả lời. Bản sửa cách gọi pipeline cần được thử lại trước thực nghiệm 100 cặp. Không thay đường chạy bằng pipeline RAG tự viết trước đây.
+Đây là bản điều chỉnh từ notebook giảng viên. Pilot 01 đã xây/lưu FAISS rồi lỗi nạp LLM; pilot 02 chạy hết một câu trên GPU nhưng phát hiện chuỗi chấm điểm chứa prompt và giới hạn sinh chưa được chuyển đúng qua wrapper. Các log được giữ nguyên; các điểm pilot 02 không được dùng làm điểm của riêng câu trả lời. Sau bản sửa, pilot 03 và benchmark 30 câu đều hoàn tất trên P100, không lỗi/prompt-prefix/vi phạm giới hạn sinh theo log người học gửi. Đánh giá toàn bộ 2.745 cặp đang chờ thực thi. Không thay đường chạy bằng pipeline RAG tự viết trước đây.
 
 Notebook gốc ở `../../../Baseline.ipynb` tính từ thư mục này được giữ nguyên. Công cụ tạo bản Docker đối chiếu SHA256 của bản gốc trước khi làm việc. Hai file `.diff` liệt kê thay đổi từng cell để người đọc kiểm tra.
 
