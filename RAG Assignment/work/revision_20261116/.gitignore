@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+qa/*
+!qa/framework_validation.json
+!qa/evaluation_selection_validation.json
+!qa/source_preparation_validation.json
+!qa/render_info.json

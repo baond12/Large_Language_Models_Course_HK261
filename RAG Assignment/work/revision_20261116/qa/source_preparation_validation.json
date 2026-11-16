@@ -1,0 +1,22 @@
+{
+  "scope": "local notebook-source and IO preparation only",
+  "original_functions_preserved": 8,
+  "generated_notebook_branches": [
+    "notebook",
+    "cosine"
+  ],
+  "cpu_tests_passed": 4,
+  "cpu_tests": [
+    "original_prompt_call_and_raw_return_unchanged",
+    "same_100_RES_pairs_ids_questions_references",
+    "zip_escape_rejected",
+    "empty_answers_in_denominator_and_PDF_Counter_separation"
+  ],
+  "cpu_test_runtime": "Codex bundled Python 3.12",
+  "python_3_10_syntax_validated": true,
+  "original_inputs_hash_verified": true,
+  "gpu_notebook_executed": false,
+  "environment_on_P100_verified": false,
+  "independent_model_rerun_verified": false,
+  "source_reproduction_fully_certified": false
+}

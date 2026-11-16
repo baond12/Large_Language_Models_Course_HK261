@@ -1,0 +1,36 @@
+[
+  {
+    "mode": "notebook",
+    "file": "Baseline_Docker_notebook.ipynb",
+    "original_functions_preserved": [
+      "normalize_text",
+      "rag_query",
+      "cosine_similarity_score",
+      "jaccard_similarity",
+      "token_overlap_score",
+      "bleu_score_simple",
+      "rouge_l_score",
+      "semantic_containment"
+    ],
+    "original_sha256": "2dc1acfb86465aa4c53e3205187c5c6999192ae6cf02643a98ee3a103b935572",
+    "derived_sha256": "cf19634e550e22723c9e011dcab7e53e6818b014d34882c808ac84d9122ea4f7",
+    "gpu_execution_verified": false
+  },
+  {
+    "mode": "cosine",
+    "file": "Baseline_Docker_cosine.ipynb",
+    "original_functions_preserved": [
+      "normalize_text",
+      "rag_query",
+      "cosine_similarity_score",
+      "jaccard_similarity",
+      "token_overlap_score",
+      "bleu_score_simple",
+      "rouge_l_score",
+      "semantic_containment"
+    ],
+    "original_sha256": "2dc1acfb86465aa4c53e3205187c5c6999192ae6cf02643a98ee3a103b935572",
+    "derived_sha256": "3a6942d3c34f2b1aae7052f94c364729dc0bd95bf764ddad0c177b4934cb83a4",
+    "gpu_execution_verified": false
+  }
+]

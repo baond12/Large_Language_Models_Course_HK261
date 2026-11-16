@@ -1,0 +1,14 @@
+{
+  "keepitreal/vietnamese-sbert": {
+    "revision": "a9467ef2ef47caa6448edeabfd8e5e5ce0fa2a23",
+    "source": "https://huggingface.co/keepitreal/vietnamese-sbert"
+  },
+  "Qwen/Qwen1.5-1.8B": {
+    "revision": "7846de7ed421727b318d6605a0bfab659da2c067",
+    "source": "https://huggingface.co/Qwen/Qwen1.5-1.8B"
+  },
+  "Qwen/Qwen2.5-3B-Instruct": {
+    "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+    "source": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct"
+  }
+}

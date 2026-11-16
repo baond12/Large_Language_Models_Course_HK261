@@ -1,0 +1,6 @@
+{
+  "scope": "local RES evaluation selection only",
+  "pairs": 100,
+  "same_ids_questions_references_as_fixed_selection": true,
+  "gpu_experiment_run": false
+}
