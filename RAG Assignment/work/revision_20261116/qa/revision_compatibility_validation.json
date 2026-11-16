@@ -1,0 +1,11 @@
+{
+  "scope": "offline tiny-model CPU compatibility test, not assignment evaluation",
+  "transformers": "4.51.3",
+  "torch": "2.6.0+cpu",
+  "failure_reproduced": "transformers.pipelines.base.infer_framework_load_model() got multiple values for keyword argument 'revision'",
+  "explicit_pt_pipeline_generates": true,
+  "qwen_on_P100_verified": false,
+  "index_cell_unchanged_from_commit": "73fefeb",
+  "index_rebuild_required_by_this_fix": false,
+  "notebook_preparation_tests_passed": 6
+}

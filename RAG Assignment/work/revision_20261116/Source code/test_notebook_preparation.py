@@ -66,6 +66,16 @@ class NotebookPreparationTests(unittest.TestCase):
             build(mode)
             derived = json.loads((ROOT / f'Baseline_Docker_{mode}.ipynb').read_text(encoding='utf-8'))
             self.assertTrue(all(not c.get('outputs') for c in derived['cells']))
+            assignments = [node for node in ast.parse(''.join(derived['cells'][5]['source'])).body if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'llm' for t in node.targets)]
+            class Loader:
+                @staticmethod
+                def from_model_id(**kwargs):
+                    return kwargs
+            namespace = {'HuggingFacePipeline': Loader, 'baseline_io': SimpleNamespace(LLM_REVISION='frozen-revision')}
+            exec(compile(ast.Module(body=assignments, type_ignores=[]), '<generated LLM call>', 'exec'), namespace)
+            self.assertEqual(namespace['llm']['model_id'], 'Qwen/Qwen1.5-1.8B')
+            self.assertEqual(namespace['llm']['model_kwargs'], {'temperature': 0, 'max_length': 1024, 'revision': 'frozen-revision'})
+            self.assertEqual(namespace['llm']['pipeline_kwargs']['framework'], 'pt')
             calls = []
             observed = []
             class Retriever:

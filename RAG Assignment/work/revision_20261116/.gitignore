@@ -5,3 +5,4 @@ qa/*
 !qa/evaluation_selection_validation.json
 !qa/source_preparation_validation.json
 !qa/render_info.json
+!qa/revision_compatibility_validation.json

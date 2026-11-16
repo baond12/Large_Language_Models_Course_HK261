@@ -270,19 +270,20 @@
  )
  
  # ==================== LOAD LLM ====================
-@@ -34,8 +37,10 @@
+@@ -34,8 +37,11 @@
      model_id="Qwen/Qwen1.5-1.8B", #Choose your model
      task="text-generation",
      device=0,  # GPU 0
 -    model_kwargs={"temperature": 0, "max_length": 1024}
-+    model_kwargs={"temperature": 0, "max_length": 1024, "revision": baseline_io.LLM_REVISION}
++    model_kwargs={"temperature": 0, "max_length": 1024, "revision": baseline_io.LLM_REVISION},
++    pipeline_kwargs={"framework": "pt"}
  )
 +
 +baseline_io.record_model(llm, embeddings)
  
  # ==================== HELPER FUNCTIONS ====================
  def normalize_text(text: str) -> str:
-@@ -67,6 +72,7 @@
+@@ -67,6 +73,7 @@
  Trả lời ngắn gọn và chính xác nhất có thể:
  """
  
@@ -290,7 +291,7 @@
      output = llm.generate([prompt],  max_new_tokens=256)
      generated_text = output.generations[0][0].text
      print(generated_text)
-@@ -139,6 +145,7 @@
+@@ -139,6 +146,7 @@
      try:
          response = rag_query(question)
      except Exception as e:
@@ -298,7 +299,7 @@
          print(f"Error at question {idx}: {e}")
          response = ""
  
-@@ -150,6 +157,7 @@
+@@ -150,6 +158,7 @@
          "ROUGE_L": rouge_l_score(response, ground_truth)
      }
  
@@ -306,7 +307,7 @@
      results.append(metrics)
  
  results_df = pd.DataFrame(results)
-@@ -159,5 +167,7 @@
+@@ -159,5 +168,7 @@
  for k, v in mean_metrics.items():
      print(f"{k}: {v:.4f}")
  

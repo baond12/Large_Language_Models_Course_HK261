@@ -74,6 +74,14 @@ Bằng chứng notebook và môi trường ở `artifacts/notebook_execution_202
 
 ## Chạy lại và nghiệm thu
 
+### Lỗi truyền trùng revision đã quan sát trên server
+
+Lần `instructor_pilot_1q_01` đã xây và lưu xong FAISS gồm 176.506 vector trên 16.440 văn bản, rồi lỗi tại cell nạp LLM: `infer_framework_load_model() got multiple values for keyword argument 'revision'`. Tham số revision được thêm trong bản Docker để khóa mô hình; không quy lỗi này cho notebook gốc chưa có tham số đó.
+
+Sửa tương thích: thêm `pipeline_kwargs={"framework": "pt"}` vào lời gọi `HuggingFacePipeline.from_model_id`. LangChain đã nạp model PyTorch; chỉ định rõ framework giúp Transformers không đi qua nhánh tự suy luận framework đang nhận revision trùng. Giữ model ID, model_kwargs (temperature, max_length, revision), device, prompt, max_new_tokens và các hàm metric. Chưa đổi dtype hoặc thuật toán truy hồi.
+
+Lỗi và cách sửa đã được tái hiện bằng Transformers 4.51.3 với một mô hình nhỏ khởi tạo ngẫu nhiên trên CPU, không tải mô hình và không coi đây là kết quả RAG. Xác nhận Qwen/P100 vẫn cần lần thử lại thực tế. Dùng tên mới `instructor_pilot_1q_02` và `--reuse-index-from instructor_pilot_1q_01 --limit 1` để giữ và kiểm tra chỉ mục đã lưu; không chạy lại embedding.
+
 Hướng dẫn tái lập cuối phải dùng các phiên bản đã thực chạy thành công, không chỉ danh sách thư viện cài được. Hiện chưa phát hành file requirements mang nhãn “đã kiểm chứng” cho notebook này.
 
 Khi chạy lại ở thư mục sạch, dùng đúng model revisions, dữ liệu, thứ tự câu và danh sách document_order.json từ lần đã báo cáo. Truyền danh sách tệp bằng `-e BASELINE_DOCUMENT_ORDER="<đường dẫn trong container tới document_order.json đã báo cáo>"` trong docker exec. Không truyền đường dẫn Windows cho tiến trình Linux.
